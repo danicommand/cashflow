@@ -1,0 +1,27 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "cashflow",
+  "main": "./worker/index.ts",
+  "compatibility_date": "2026-07-14",
+  "workers_dev": true,
+  "preview_urls": false,
+
+  "assets": {
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cashflow",
+      "database_id": "879ae93b-7223-42fb-9f89-b6376dd58f89",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  "observability": {
+    "enabled": true
+  }
+}
