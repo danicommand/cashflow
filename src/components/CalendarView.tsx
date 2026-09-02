@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 
 import type { Translator } from "../i18n.ts";
 import type { CurrencyCode, Language, Occurrence } from "../types.ts";
@@ -75,6 +75,9 @@ export function CalendarView({
       <div className="grid" role="grid">
         {cells.map((date, index) => {
           if (!date) return <span key={`blank-${index}`} className="cell blank" />;
+          // The cascade runs by row, not by cell, so a 42-cell grid settles in
+          // a few hundred milliseconds instead of crawling across the month.
+          const wave = Math.floor(index / 7) + (index % 7) * 0.35;
           const day = totals.get(date);
           const isToday = date === today;
           const isSelected = date === selected;
@@ -92,6 +95,7 @@ export function CalendarView({
               key={date}
               type="button"
               className={classes}
+              style={{ "--wave": wave } as CSSProperties}
               aria-current={isToday ? "date" : undefined}
               aria-label={formatFullDate(date, language)}
               onClick={() => setSelected(date)}

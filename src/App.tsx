@@ -6,6 +6,7 @@ import { MonthView } from "./components/MonthView.tsx";
 import { SettingsView } from "./components/SettingsView.tsx";
 import { SettleSheet } from "./components/SettleSheet.tsx";
 import { useSync } from "./hooks/useSync.ts";
+import { FLIGHT_CATCH_MS, flyToTotal, measureOccurrenceAmount } from "./motion/flight.ts";
 import { translatorFor } from "./i18n.ts";
 import type { Entry, Ledger, Occurrence, Settings } from "./types.ts";
 import { currentMonthKey, firstDayOfMonth, shiftMonthKey, todayIso } from "./services/dates.ts";
@@ -48,6 +49,17 @@ export default function App() {
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [settling, setSettling] = useState<Occurrence | null>(null);
   const [importMessage, setImportMessage] = useState<string | null>(null);
+  /**
+   * Which way the month last moved, so the outgoing and incoming views travel
+   * in the same direction the person asked for. Without this a step backwards
+   * animates identically to a step forwards and the gesture loses its meaning.
+   */
+  const [monthStep, setMonthStep] = useState<"forward" | "back">("forward");
+  /**
+   * Non-zero for as long as an amount is in the air, so the total holds still
+   * and then rolls as the amount lands rather than changing before it arrives.
+   */
+  const [catchDelay, setCatchDelay] = useState(0);
 
   const t = useMemo(() => translatorFor(settings.language), [settings.language]);
   const today = todayIso();
@@ -92,6 +104,17 @@ export default function App() {
     setEditor({ entry: occurrence.entry, draft: draftFrom(occurrence.entry) });
   };
 
+  const stepMonth = (step: number) => {
+    setMonthStep(step > 0 ? "forward" : "back");
+    setMonth((current) => shiftMonthKey(current, step));
+  };
+
+  const goToThisMonth = () => {
+    const target = currentMonthKey();
+    setMonthStep(target > month ? "forward" : "back");
+    setMonth(target);
+  };
+
   const toggleOccurrence = (occurrence: Occurrence) => {
     if (occurrence.payment) {
       setLedger((current) =>
@@ -100,6 +123,26 @@ export default function App() {
       return;
     }
     setSettling(occurrence);
+  };
+
+  /**
+   * Settling a bill, choreographed.
+   *
+   * The row is measured *before* the state change, while it is still where the
+   * person tapped it; a moment later it will have left the unpaid list. The
+   * total then holds for the length of the flight so the two halves of the
+   * event read as one.
+   */
+  const settle = (occurrence: Occurrence, amount: number, paidOn: string) => {
+    const origin = measureOccurrenceAmount(occurrence.key);
+    setLedger((current) =>
+      settleOccurrence(current, occurrence.entry.id, occurrence.date, amount, paidOn),
+    );
+    setSettling(null);
+    if (!origin) return;
+    setCatchDelay(FLIGHT_CATCH_MS);
+    flyToTotal(origin);
+    window.setTimeout(() => setCatchDelay(0), 1_200);
   };
 
   const saveEntry = (draft: EntryDraft) => {
@@ -191,7 +234,7 @@ export default function App() {
             type="button"
             className="icon-button"
             aria-label={t("month.previous")}
-            onClick={() => setMonth((current) => shiftMonthKey(current, -1))}
+            onClick={() => stepMonth(-1)}
           >
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path d="M15 5l-7 7 7 7" />
@@ -202,7 +245,7 @@ export default function App() {
             type="button"
             className="icon-button"
             aria-label={t("month.next")}
-            onClick={() => setMonth((current) => shiftMonthKey(current, 1))}
+            onClick={() => stepMonth(1)}
           >
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path d="M9 5l7 7-7 7" />
@@ -212,7 +255,7 @@ export default function App() {
             <button
               type="button"
               className="link-button today-button"
-              onClick={() => setMonth(currentMonthKey())}
+              onClick={goToThisMonth}
             >
               {t("month.today")}
             </button>
@@ -221,6 +264,9 @@ export default function App() {
       ) : null}
 
       <main className="content">
+        {/* Keyed on what is being shown, so switching tab or month replays the
+            entrance; the direction attribute tells it which way to travel. */}
+        <div className="view" key={`${tab}:${month}`} data-step={monthStep}>
         {tab === "month" ? (
           <MonthView
             occurrences={occurrences}
@@ -228,6 +274,7 @@ export default function App() {
             currency={settings.currency}
             language={settings.language}
             t={t}
+            catchDelay={catchDelay}
             onToggle={toggleOccurrence}
             onOpen={openEditorFor}
           />
@@ -263,6 +310,7 @@ export default function App() {
             t={t}
           />
         ) : null}
+        </div>
       </main>
 
       {tab !== "settings" ? (
@@ -299,12 +347,7 @@ export default function App() {
           currency={settings.currency}
           language={settings.language}
           t={t}
-          onConfirm={(amount, paidOn) => {
-            setLedger((current) =>
-              settleOccurrence(current, settling.entry.id, settling.date, amount, paidOn),
-            );
-            setSettling(null);
-          }}
+          onConfirm={(amount, paidOn) => settle(settling, amount, paidOn)}
           onClose={() => setSettling(null)}
         />
       ) : null}

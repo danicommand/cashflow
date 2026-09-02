@@ -31,13 +31,20 @@ export function Sheet({ title, closeLabel, onClose, children, footer }: SheetPro
     firstField?.focus();
 
     // The page behind must not scroll while a sheet is open, or a phone
-    // scrolls the list instead of the form.
+    // scrolls the list instead of the form. Hiding the overflow also removes
+    // the scrollbar, and on a desktop with classic scrollbars that widens the
+    // viewport and shunts the whole page sideways as the sheet opens — so the
+    // width it took back is handed straight to the padding.
+    const gutter = window.innerWidth - document.documentElement.clientWidth;
     const previousOverflow = document.body.style.overflow;
+    const previousPadding = document.body.style.paddingRight;
     document.body.style.overflow = "hidden";
+    if (gutter > 0) document.body.style.paddingRight = `${gutter}px`;
 
     return () => {
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
+      document.body.style.paddingRight = previousPadding;
       previous?.focus?.();
     };
   }, [onClose]);

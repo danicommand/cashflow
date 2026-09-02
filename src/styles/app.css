@@ -35,6 +35,20 @@
 
   --gutter: 16px;
   --max-width: 780px;
+
+  /* Motion. One deceleration curve for arrivals, one for departures, and one
+     with a little overshoot reserved for the two moments that have earned it:
+     a bill being ticked off, and the total catching what it was sent. */
+  --ease-arrive: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-leave: cubic-bezier(0.4, 0, 1, 1);
+  /* A touch past the target and back — enough to read as something coming to
+     rest, well short of a bounce. Reserved for the two authored moments (a
+     bill being ticked off, the total catching it) and the calendar's dots;
+     everything else decelerates cleanly into place. */
+  --ease-settle: cubic-bezier(0.34, 1.12, 0.5, 1);
+  --fast: 140ms;
+  --normal: 240ms;
+  --slow: 420ms;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -395,18 +409,12 @@ svg {
   overflow: hidden;
 }
 
-.progress span {
+/* The fill and the sheen both live inside the track, which owns the rounded
+   ends and clips them. */
+.progress > span {
+  position: absolute;
+  inset: 0;
   display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: var(--good);
-  transition: width 0.25s ease;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .progress span {
-    transition: none;
-  }
 }
 
 .hero-sub {
@@ -625,9 +633,20 @@ svg {
   color: var(--ink-faint);
 }
 
+/* The line is drawn across the title rather than switched on, so the eye
+   follows the settling instead of finding it already done. A real
+   text-decoration cannot be animated; a background gradient sized from zero
+   can, and it sits on the text baseline the same way. */
+.row-title {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: left 55%;
+  background-size: 0 1px;
+  transition: background-size var(--slow) var(--ease-arrive) 120ms;
+}
+
 .row.settled .row-title {
-  text-decoration: line-through;
-  text-decoration-color: var(--line-strong);
+  background-size: 100% 1px;
 }
 
 /* ------------------------------------------------------------------- bars -- */
@@ -1086,5 +1105,654 @@ svg {
 
   .cell-amount {
     display: none;
+  }
+}
+
+/* ================================================================ motion == */
+/*
+ * Everything below is choreography. It is grouped here rather than beside each
+ * component because the pieces answer to each other: the flight duration, the
+ * hold on the total, and the progress sweep are one sequence, and reading them
+ * apart is how they drift out of time.
+ *
+ * The whole file assumes movement is a privilege. The reduced-motion block at
+ * the end does not switch animation off — it keeps every state change legible
+ * and removes only the travel.
+ */
+
+/* -- the total, as an odometer ------------------------------------------- */
+
+.odometer {
+  display: inline-flex;
+  align-items: baseline;
+}
+
+.odometer-slots {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.odo-fixed,
+.odo-slot {
+  display: inline-block;
+  height: 1.06em;
+  line-height: 1.06;
+}
+
+/* The window a single wheel is seen through. */
+.odo-slot {
+  position: relative;
+  overflow: hidden;
+  width: 0.62em;
+  text-align: center;
+}
+
+.odo-reel {
+  display: flex;
+  flex-direction: column;
+  /* Ten faces stacked, so one face is a tenth of the reel and showing a digit
+     is simply `digit * -10%`. */
+  height: 1000%;
+  transition: transform 520ms var(--ease-settle);
+  will-change: transform;
+}
+
+/*
+ * A face is laid out as a line of text, not as a centred box. Centring puts
+ * the glyph in the middle of the cell, which is a different place from where
+ * a baseline puts it — and the fixed characters beside it (the currency
+ * symbol, the decimal comma) are on that baseline. Matching the line-height
+ * to the cell height is what keeps the comma sitting on the same line as the
+ * digits either side of it.
+ */
+.odo-face {
+  flex: 1;
+  display: block;
+  height: 10%;
+  line-height: 1.06;
+  text-align: center;
+}
+
+/*
+ * A hairline of shade at the top and bottom of the figure, so the digits read
+ * as physical wheels turning behind a slot rather than as text sliding. Two
+ * gradients over one small area; nothing to composite per frame.
+ */
+.hero-figure {
+  position: relative;
+  isolation: isolate;
+}
+
+.hero-figure .odometer-slots::before,
+.hero-figure .odometer-slots::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0.2em;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.hero-figure .odometer-slots::before {
+  top: 0;
+  background: linear-gradient(var(--surface), transparent);
+}
+
+.hero-figure .odometer-slots::after {
+  bottom: 0;
+  background: linear-gradient(transparent, var(--surface));
+}
+
+/* The total acknowledging an amount that has just landed in it. */
+.hero-figure.caught {
+  animation: caught 620ms var(--ease-settle);
+}
+
+@keyframes caught {
+  0% {
+    transform: scale(1);
+  }
+  22% {
+    transform: scale(1.045);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.hero-figure.caught::after {
+  content: "";
+  position: absolute;
+  inset: -14% -6%;
+  z-index: -1;
+  border-radius: 18px;
+  background: radial-gradient(60% 120% at 14% 50%, var(--accent-soft), transparent 70%);
+  animation: caught-glow 700ms var(--ease-arrive) forwards;
+  pointer-events: none;
+}
+
+@keyframes caught-glow {
+  0% {
+    opacity: 0;
+    transform: scale(0.86);
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+}
+
+/* -- the amount in flight ------------------------------------------------ */
+
+/*
+ * The travelling copy of a row amount. Fixed rather than absolute, so it is
+ * measured against the same viewport the row was measured in, and inert to
+ * pointers so it can never intercept the next tap.
+ */
+.money-flight {
+  position: fixed;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--alert);
+  text-shadow: 0 2px 14px var(--alert-soft);
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.money-flight.income {
+  color: var(--good);
+  text-shadow: 0 2px 14px var(--good-soft);
+}
+
+/* -- the progress bar ---------------------------------------------------- */
+
+.progress {
+  position: relative;
+}
+
+/*
+ * Scaled, not resized. Width is the obvious property for a bar whose length is
+ * the data, and it is the wrong one: every frame of a width transition lays
+ * the document out again. A horizontal scale from the left edge is the same
+ * picture on the compositor, and the track's own radius keeps the ends round
+ * so nothing is distorted by the stretch.
+ */
+.progress-fill {
+  background: var(--good);
+  transform-origin: left center;
+  transition: transform var(--slow) var(--ease-arrive);
+}
+
+/*
+ * A specular sweep that runs once each time the bar advances — the light a
+ * physical gauge catches as it moves. It is sized to the filled portion, and
+ * only the gradient inside it moves, so the sweep travels across what has been
+ * paid and stops. It never loops.
+ */
+.progress-sheen {
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.progress-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.75) 50%,
+    transparent 80%
+  );
+  transform: translateX(-120%);
+  animation: sweep 900ms var(--ease-arrive) 140ms;
+}
+
+@keyframes sweep {
+  to {
+    transform: translateX(220%);
+  }
+}
+
+/* -- ticking a bill off -------------------------------------------------- */
+
+.tick-check {
+  /* A little over the path length: over is safe, under clips the stroke. Set
+     here rather than inline so the draw can run in both directions. */
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+  transition: stroke-dashoffset 300ms var(--ease-arrive) 60ms;
+}
+
+.row.settled .tick-check {
+  stroke-dashoffset: 0;
+}
+
+.tick {
+  position: relative;
+  transition:
+    background var(--normal) var(--ease-arrive),
+    border-color var(--normal) var(--ease-arrive),
+    transform var(--fast) var(--ease-arrive);
+}
+
+.tick:active {
+  transform: scale(0.9);
+}
+
+.row.settled .tick {
+  animation: tick-pop 420ms var(--ease-settle);
+}
+
+@keyframes tick-pop {
+  0% {
+    transform: scale(1);
+  }
+  38% {
+    transform: scale(1.22);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* The ring thrown off by a bill being settled. On a pseudo-element so it can
+   expand past the button without touching layout. */
+.row.settled .tick::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 2px solid var(--good);
+  animation: tick-ring 620ms var(--ease-arrive) forwards;
+  pointer-events: none;
+}
+
+@keyframes tick-ring {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.7);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.9);
+  }
+}
+
+.row {
+  transition:
+    background var(--normal) var(--ease-arrive),
+    opacity var(--normal) var(--ease-arrive);
+}
+
+.row-amount {
+  transition: color var(--slow) var(--ease-arrive);
+}
+
+/* -- the month changing -------------------------------------------------- */
+
+/*
+ * A month arrives from the side it came from, under a brief defocus so the
+ * incoming list resolves rather than slides in hard. The direction comes from
+ * the control that was pressed, so stepping back is visibly the inverse of
+ * stepping forward instead of the same movement played twice.
+ */
+.view {
+  animation: view-in var(--slow) var(--ease-arrive) both;
+}
+
+.view[data-step="back"] {
+  animation-name: view-in-back;
+}
+
+@keyframes view-in {
+  from {
+    opacity: 0;
+    transform: translate3d(26px, 0, 0);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+
+@keyframes view-in-back {
+  from {
+    opacity: 0;
+    transform: translate3d(-26px, 0, 0);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+
+/* The summary tiles resolve as a short cascade under the headline figure. */
+.stats .stat {
+  animation: tile-in 380ms var(--ease-arrive) both;
+}
+
+.stats .stat:nth-child(1) {
+  animation-delay: 40ms;
+}
+
+.stats .stat:nth-child(2) {
+  animation-delay: 80ms;
+}
+
+.stats .stat:nth-child(3) {
+  animation-delay: 120ms;
+}
+
+.stats .stat:nth-child(4) {
+  animation-delay: 160ms;
+}
+
+@keyframes tile-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Category bars fill from nothing, so their proportions are read as they draw
+   rather than arriving already measured. */
+.bar-track span {
+  transform-origin: left center;
+  animation: bar-grow 620ms var(--ease-arrive) both;
+}
+
+@keyframes bar-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* -- the calendar grid --------------------------------------------------- */
+
+/*
+ * The grid resolves as a wave from the top-left corner rather than cell by
+ * cell in reading order — a month is a shape, and it should assemble as one.
+ * `--wave` is computed per cell from its row and column, so the delay runs
+ * diagonally and is bounded by the multiplier rather than by the cell count.
+ */
+.cell:not(.blank) {
+  animation: cell-in 420ms var(--ease-arrive) both;
+  animation-delay: calc(var(--wave, 0) * 16ms);
+  transition:
+    border-color var(--fast) var(--ease-arrive),
+    box-shadow var(--fast) var(--ease-arrive),
+    transform var(--fast) var(--ease-arrive);
+}
+
+@keyframes cell-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.cell:not(.blank):hover {
+  transform: translateY(-2px);
+  border-color: var(--line-strong);
+}
+
+/* A day's markers land after its cell, so the dots read as the cell's content
+   rather than as part of its edge. */
+.cell-marks .mark {
+  animation: mark-in 320ms var(--ease-settle) both;
+  animation-delay: calc(var(--wave, 0) * 16ms + 130ms);
+}
+
+@keyframes mark-in {
+  from {
+    opacity: 0;
+    transform: scale(0);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* -- sheets -------------------------------------------------------------- */
+
+.sheet-backdrop {
+  animation: backdrop-in var(--normal) var(--ease-arrive) both;
+}
+
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.sheet {
+  animation: sheet-rise var(--slow) var(--ease-arrive) both;
+  will-change: transform;
+}
+
+@keyframes sheet-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 28px, 0) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/*
+ * The fields resolve in order, so the eye is led to the one to fill first
+ * instead of meeting the whole form at once. Capped at six: past that
+ * everything arrives together rather than the form growing slower the longer
+ * it gets.
+ */
+.sheet-body .form > * {
+  animation: field-in 300ms var(--ease-arrive) both;
+}
+
+.sheet-body .form > *:nth-child(1) {
+  animation-delay: 60ms;
+}
+
+.sheet-body .form > *:nth-child(2) {
+  animation-delay: 100ms;
+}
+
+.sheet-body .form > *:nth-child(3) {
+  animation-delay: 140ms;
+}
+
+.sheet-body .form > *:nth-child(4) {
+  animation-delay: 175ms;
+}
+
+.sheet-body .form > *:nth-child(5) {
+  animation-delay: 205ms;
+}
+
+.sheet-body .form > *:nth-child(n + 6) {
+  animation-delay: 230ms;
+}
+
+@keyframes field-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* -- controls ------------------------------------------------------------ */
+
+.button,
+.tab,
+.segment,
+.icon-button {
+  transition:
+    background var(--fast) var(--ease-arrive),
+    border-color var(--fast) var(--ease-arrive),
+    color var(--fast) var(--ease-arrive),
+    transform var(--fast) var(--ease-arrive);
+}
+
+.button:active,
+.segment:active,
+.tab:active {
+  transform: scale(0.97);
+}
+
+.fab {
+  transition:
+    transform 260ms var(--ease-arrive),
+    box-shadow 260ms var(--ease-arrive);
+}
+
+.fab:hover {
+  transform: scale(1.06) rotate(90deg);
+}
+
+.fab:active {
+  transform: scale(0.94) rotate(90deg);
+}
+
+/* An error arrives in response to a press, so it pushes in and settles rather
+   than appearing already in place. */
+.form-error {
+  animation: error-in 280ms var(--ease-arrive);
+}
+
+@keyframes error-in {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -6px, 0);
+  }
+  60% {
+    transform: translate3d(0, 2px, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* -- browser surfaces ---------------------------------------------------- */
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: var(--line-strong);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-faint);
+  background-clip: content-box;
+}
+
+/* -- reduced motion ------------------------------------------------------ */
+
+/*
+ * Not an off switch. Every state change below still reads: the odometer lands
+ * on its new value, the tick still fills, the bar still advances, the total
+ * still marks an arrival. What goes is the travel — the flight, the slides,
+ * the cascades, the overshoot — because the travel is the part that causes
+ * trouble, not the fact that something changed.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .odo-reel {
+    transition-duration: 1ms;
+    transition-delay: 0ms;
+  }
+
+  .view,
+  .stats .stat,
+  .cell:not(.blank),
+  .cell-marks .mark,
+  .sheet,
+  .sheet-backdrop,
+  .sheet-body .form > *,
+  .bar-track span,
+  .form-error {
+    animation: none;
+  }
+
+  .progress-fill {
+    transition: transform var(--normal) linear;
+  }
+
+  .progress-sheen::after {
+    animation: none;
+    opacity: 0;
+  }
+
+  .row.settled .tick,
+  .row.settled .tick::after,
+  .hero-figure.caught {
+    animation: none;
+  }
+
+  /* The total still marks the moment, with light instead of movement. */
+  .hero-figure.caught::after {
+    animation: caught-glow 500ms linear forwards;
+  }
+
+  .fab:hover,
+  .fab:active,
+  .button:active,
+  .segment:active,
+  .tab:active,
+  .tick:active,
+  .cell:not(.blank):hover {
+    transform: none;
   }
 }

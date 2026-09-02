@@ -4,6 +4,7 @@ import type { Translator } from "../i18n.ts";
 import type { CurrencyCode, Language, Occurrence } from "../types.ts";
 import { formatMoney } from "../services/money.ts";
 import { paidProgress, summarise, totalsByCategory } from "../services/summary.ts";
+import { AnimatedMoney } from "./AnimatedMoney.tsx";
 import { OccurrenceRow } from "./OccurrenceRow.tsx";
 
 interface MonthViewProps {
@@ -12,6 +13,8 @@ interface MonthViewProps {
   currency: CurrencyCode;
   language: Language;
   t: Translator;
+  /** Milliseconds the total holds before rolling, so it catches an arrival. */
+  catchDelay: number;
   onToggle: (occurrence: Occurrence) => void;
   onOpen: (occurrence: Occurrence) => void;
 }
@@ -29,6 +32,7 @@ export function MonthView({
   currency,
   language,
   t,
+  catchDelay,
   onToggle,
   onOpen,
 }: MonthViewProps) {
@@ -58,7 +62,14 @@ export function MonthView({
     <div className="month">
       <section className="hero" aria-label={t("summary.leftToPay")}>
         <p className="hero-label">{t("summary.leftToPay")}</p>
-        <p className="hero-figure">{money(summary.remainingTotal)}</p>
+        <p className="hero-figure" data-total-figure>
+          <AnimatedMoney
+            cents={summary.remainingTotal}
+            currency={currency}
+            language={language}
+            delay={catchDelay}
+          />
+        </p>
         <div
           className="progress"
           role="progressbar"
@@ -66,9 +77,20 @@ export function MonthView({
           aria-valuemax={100}
           aria-valuenow={Math.round(progress * 100)}
         >
-          <span style={{ width: `${Math.round(progress * 100)}%` }} />
+          {/* The bar is scaled rather than resized: animating width lays the
+              page out again on every frame, and a bar this thin has no reason
+              to. The sheen is a separate element keyed on the value, so it
+              replays on each advance while the fill keeps its identity and its
+              transition. */}
+          <span className="progress-fill" style={{ transform: `scaleX(${progress})` }} />
+          <span
+            key={Math.round(progress * 1000)}
+            className="progress-sheen"
+            style={{ width: `${Math.round(progress * 100)}%` }}
+            aria-hidden="true"
+          />
         </div>
-        <p className="hero-sub">
+        <p className="hero-sub" key={summary.remainingTotal === 0 ? "done" : "owing"}>
           {summary.remainingTotal === 0 && summary.expenseTotal > 0
             ? t("summary.allPaid")
             : t("summary.paidOf", {

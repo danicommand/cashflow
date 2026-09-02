@@ -71,6 +71,43 @@ a `Date` through the local `(y, m, d)` constructor.
 first and the app works with no connection at all. Sync is a background
 reconciliation, never a prerequisite.
 
+## Motion
+
+There is one authored moment, and it is paying a bill. The amount lifts off its
+row, arcs to the month total, and the total catches it: the digits roll like a
+meter, and only the wheels whose digit actually changed turn. The progress bar
+then advances and catches a single pass of light. Those two halves of the event
+sit far apart on screen, and the travel is what makes them one event rather
+than two unrelated changes.
+
+Everything else is quiet and explains something:
+
+- **The tick** draws its check rather than switching it on, and the
+  strikethrough wipes across the title instead of appearing.
+- **Months** travel in the direction you asked for, so stepping back is
+  visibly the inverse of stepping forward.
+- **The calendar** assembles as a diagonal wave from the first of the month —
+  a month is a shape, not a list of cells.
+- **Sheets** rise and their fields resolve in order, leading to the field to
+  fill first.
+
+Implementation notes worth knowing before editing:
+
+- No animation library. CSS for declarative state, the Web Animations API for
+  the one effect that has to measure real elements.
+- `src/motion/flight.ts` is the only module that touches the DOM directly, and
+  the comment at the top says why it has to. It skips the flight when the total
+  is off screen, because an amount that flies somewhere nobody can see is
+  worse than no flight.
+- Nothing animates a layout property. The progress bar is `scaleX` on a
+  clipped track, not `width`.
+- Nothing loops. The only repeating animation in the app is the sync dot while
+  a sync is actually in flight.
+- `prefers-reduced-motion` has a real alternative rather than an off switch:
+  the odometer still lands on its value, the tick still fills, the bar still
+  advances, and the total still marks an arrival — with light instead of
+  movement. The travel is what goes.
+
 ## Sync, and what it does and does not protect
 
 Sync is off until a personal code is set. Typing the same code on two devices

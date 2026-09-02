@@ -57,7 +57,17 @@ export function OccurrenceRow({
       : t("action.markPaid");
 
   return (
-    <li className={`row${settled ? " settled" : ""}${overdue ? " overdue" : ""}`}>
+    <li
+      className={[
+        "row",
+        settled ? "settled" : "",
+        overdue ? "overdue" : "",
+        isIncome ? "is-income" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      data-occurrence={occurrence.key}
+    >
       <button
         type="button"
         className="tick"
@@ -66,7 +76,9 @@ export function OccurrenceRow({
         onClick={() => onToggle(occurrence)}
       >
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <path d="M5 12.5l4.5 4.5L19 7.5" />
+          {/* One continuous stroke, drawn rather than switched on. The dash
+              length is set in CSS so the draw can be reversed on undo. */}
+          <path className="tick-check" d="M5 12.5l4.5 4.5L19 7.5" />
         </svg>
       </button>
 
@@ -81,7 +93,7 @@ export function OccurrenceRow({
         </span>
       </button>
 
-      <span className={`row-amount${isIncome ? " income" : ""}`}>
+      <span className={`row-amount${isIncome ? " income" : ""}`} data-row-amount>
         {formatMoney(shown, currency, language)}
       </span>
     </li>
