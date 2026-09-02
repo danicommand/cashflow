@@ -2,6 +2,8 @@ import { useEffect, useRef, type ReactNode } from "react";
 
 interface SheetProps {
   title: string;
+  /** Accessible name for the close control, in the reader's language. */
+  closeLabel: string;
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
@@ -13,7 +15,7 @@ interface SheetProps {
  * it, and focus moves inside on open so a keyboard is not left behind the
  * overlay.
  */
-export function Sheet({ title, onClose, children, footer }: SheetProps) {
+export function Sheet({ title, closeLabel, onClose, children, footer }: SheetProps) {
   const panel = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -50,7 +52,7 @@ export function Sheet({ title, onClose, children, footer }: SheetProps) {
       <div className="sheet" role="dialog" aria-modal="true" aria-label={title} ref={panel}>
         <header className="sheet-head">
           <h2>{title}</h2>
-          <button type="button" className="icon-button" onClick={onClose} aria-label={title}>
+          <button type="button" className="icon-button" onClick={onClose} aria-label={closeLabel}>
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>

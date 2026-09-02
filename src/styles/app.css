@@ -242,16 +242,19 @@ svg {
   flex: 1;
   font-size: 19px;
   text-align: center;
-  text-transform: capitalize;
 }
 
+/* Intl gives "setembro de 2026" lowercase. `capitalize` would also raise the
+   "de"; only the first letter should move. */
+.month-title::first-letter {
+  text-transform: uppercase;
+}
+
+/* In flow, after the next-month arrow — absolute positioning put it on top
+   of that arrow and made the month unnavigable in one direction. */
 .today-button {
-  position: absolute;
-  right: var(--gutter);
-}
-
-.monthbar {
-  position: relative;
+  flex: none;
+  margin-left: 6px;
 }
 
 .content {
@@ -493,6 +496,12 @@ svg {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
+}
+
+/* An empty list would otherwise draw its border around nothing, above the
+   message that explains why it is empty. */
+.rows:empty {
+  display: none;
 }
 
 .rows {

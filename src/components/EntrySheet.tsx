@@ -97,6 +97,7 @@ export function EntrySheet({
   return (
     <Sheet
       title={title}
+      closeLabel={t("action.close")}
       onClose={onClose}
       footer={
         <>

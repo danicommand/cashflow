@@ -58,6 +58,7 @@ export function SettleSheet({
   return (
     <Sheet
       title={isIncome ? t("pay.titleIncome") : t("pay.titleExpense")}
+      closeLabel={t("action.close")}
       onClose={onClose}
       footer={
         <>
