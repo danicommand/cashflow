@@ -4,11 +4,14 @@ import type { Translator } from "../i18n.ts";
 import type { CurrencyCode, Language, Occurrence } from "../types.ts";
 import { formatMoney } from "../services/money.ts";
 import { paidProgress, summarise, totalsByCategory } from "../services/summary.ts";
+import type { MonthSpend } from "../services/trend.ts";
 import { AnimatedMoney } from "./AnimatedMoney.tsx";
 import { OccurrenceRow } from "./OccurrenceRow.tsx";
+import { TrendChart } from "./TrendChart.tsx";
 import { UpcomingPanel } from "./UpcomingPanel.tsx";
 
 interface MonthViewProps {
+  month: string;
   occurrences: Occurrence[];
   today: string;
   currency: CurrencyCode;
@@ -26,9 +29,12 @@ interface MonthViewProps {
   globalOverdueTotal: number;
   /** Overdue and soon-due bills that belong to some other month. */
   elsewhere: Occurrence[];
+  /** What was actually paid in each of the last several months, oldest first. */
+  history: MonthSpend[];
   onToggle: (occurrence: Occurrence) => void;
   onOpen: (occurrence: Occurrence) => void;
   onJumpElsewhere: (occurrence: Occurrence) => void;
+  onSelectMonth: (month: string) => void;
 }
 
 /**
@@ -39,6 +45,7 @@ interface MonthViewProps {
  * through the month the payments are, what is late, and what is coming in.
  */
 export function MonthView({
+  month,
   occurrences,
   today,
   currency,
@@ -49,9 +56,11 @@ export function MonthView({
   carriedIn,
   globalOverdueTotal,
   elsewhere,
+  history,
   onToggle,
   onOpen,
   onJumpElsewhere,
+  onSelectMonth,
 }: MonthViewProps) {
   const [showSettled, setShowSettled] = useState(false);
 
@@ -90,6 +99,14 @@ export function MonthView({
           language={language}
           t={t}
           onJump={onJumpElsewhere}
+        />
+        <TrendChart
+          history={history}
+          currentMonth={month}
+          currency={currency}
+          language={language}
+          t={t}
+          onSelect={onSelectMonth}
         />
       </div>
     );
@@ -146,11 +163,15 @@ export function MonthView({
       <section className="stats" aria-label={t("summary.balance")}>
         <div className={`stat${globalOverdueTotal > 0 ? " alert" : ""}`}>
           <span className="stat-label">{t("summary.overdue")}</span>
-          <span className="stat-value">{money(globalOverdueTotal)}</span>
+          <span className="stat-value">
+            <AnimatedMoney cents={globalOverdueTotal} currency={currency} language={language} />
+          </span>
         </div>
         <div className={`stat${balance < 0 ? " alert" : " good"}`}>
           <span className="stat-label">{t("summary.balance")}</span>
-          <span className="stat-value">{money(balance)}</span>
+          <span className="stat-value">
+            <AnimatedMoney cents={balance} currency={currency} language={language} />
+          </span>
           <span className="stat-hint">
             {carriedIn !== 0
               ? t("summary.balanceCarried", { amount: money(carriedIn) })
@@ -159,11 +180,15 @@ export function MonthView({
         </div>
         <div className="stat">
           <span className="stat-label">{t("summary.dueLater")}</span>
-          <span className="stat-value">{money(summary.dueLaterTotal)}</span>
+          <span className="stat-value">
+            <AnimatedMoney cents={summary.dueLaterTotal} currency={currency} language={language} />
+          </span>
         </div>
         <div className="stat">
           <span className="stat-label">{t("summary.received")}</span>
-          <span className="stat-value">{money(summary.receivedTotal)}</span>
+          <span className="stat-value">
+            <AnimatedMoney cents={summary.receivedTotal} currency={currency} language={language} />
+          </span>
         </div>
       </section>
 
@@ -269,6 +294,15 @@ export function MonthView({
           </ul>
         </section>
       ) : null}
+
+      <TrendChart
+        history={history}
+        currentMonth={month}
+        currency={currency}
+        language={language}
+        t={t}
+        onSelect={onSelectMonth}
+      />
     </div>
   );
 }

@@ -165,6 +165,36 @@ export function unsettleOccurrence(
   };
 }
 
+/**
+ * Reverse one `deleteEntry` call — the "Undo" behind the delete toast.
+ *
+ * It only restores records whose `deletedAt` matches the exact stamp that
+ * delete wrote, rather than just clearing `deletedAt` on everything with a
+ * matching id. That match is what makes it safe to undo a delete from three
+ * minutes ago without also resurrecting a payment someone else had already
+ * removed a week earlier for an unrelated reason.
+ */
+export function restoreEntry(
+  ledger: Ledger,
+  entryId: string,
+  deletedAtStamp: string,
+  now = new Date(),
+): Ledger {
+  const stamp = now.toISOString();
+  return {
+    entries: ledger.entries.map((entry) =>
+      entry.id === entryId && entry.deletedAt === deletedAtStamp
+        ? { ...entry, deletedAt: null, updatedAt: stamp }
+        : entry,
+    ),
+    payments: ledger.payments.map((payment) =>
+      payment.entryId === entryId && payment.deletedAt === deletedAtStamp
+        ? { ...payment, deletedAt: null, updatedAt: stamp }
+        : payment,
+    ),
+  };
+}
+
 /** Existing category names, for the suggestion list on the form. */
 export function knownCategories(ledger: Ledger): string[] {
   const seen = new Set<string>();

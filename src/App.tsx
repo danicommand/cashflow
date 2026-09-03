@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { CalendarView } from "./components/CalendarView.tsx";
 import { EntrySheet } from "./components/EntrySheet.tsx";
 import { MonthView } from "./components/MonthView.tsx";
 import { SettingsView } from "./components/SettingsView.tsx";
 import { SettleSheet } from "./components/SettleSheet.tsx";
+import { Toast } from "./components/Toast.tsx";
 import { useFabVisible } from "./hooks/useFabVisible.ts";
 import { useSync } from "./hooks/useSync.ts";
 import { FLIGHT_CATCH_MS, flyToTotal, measureOccurrenceAmount } from "./motion/flight.ts";
@@ -26,6 +27,7 @@ import {
   deleteEntry,
   draftFrom,
   knownCategories,
+  restoreEntry,
   settleOccurrence,
   unsettleOccurrence,
   updateEntry,
@@ -34,6 +36,7 @@ import {
 import { mergeLedgers } from "./services/merge.ts";
 import { occurrencesInMonth, overdueExpenses, upcomingExpenses } from "./services/occurrences.ts";
 import { runningBalance } from "./services/summary.ts";
+import { spendHistory } from "./services/trend.ts";
 import {
   buildBackup,
   clearLedger,
@@ -50,11 +53,24 @@ const UPCOMING_WINDOW_DAYS = 14;
 /** How many cross-month items the panel shows before it stops rather than scrolls. */
 const UPCOMING_LIMIT = 5;
 
+/** How many months the "Recent months" chart covers, the displayed month included. */
+const HISTORY_MONTHS = 6;
+
+/** How long a toast stays before it dismisses itself. */
+const TOAST_MS = 6_000;
+
 type Tab = "month" | "calendar" | "settings";
 
 interface EditorState {
   entry: Entry | null;
   draft: EntryDraft;
+}
+
+interface ToastState {
+  id: number;
+  message: string;
+  actionLabel?: string;
+  onAction?: () => void;
 }
 
 export default function App() {
@@ -76,6 +92,8 @@ export default function App() {
    * and then rolls as the amount lands rather than changing before it arrives.
    */
   const [catchDelay, setCatchDelay] = useState(0);
+  const [toast, setToast] = useState<ToastState | null>(null);
+  const toastTimer = useRef<number | undefined>(undefined);
   const fabVisible = useFabVisible();
 
   const t = useMemo(() => translatorFor(settings.language), [settings.language]);
@@ -146,6 +164,12 @@ export default function App() {
     };
   }, [ledger, today, month]);
 
+  /** What was actually paid in each of the last several months, for the trend chart. */
+  const history = useMemo(
+    () => spendHistory(ledger.entries, ledger.payments, month, today, HISTORY_MONTHS),
+    [ledger, month, today],
+  );
+
   const openEditorForNew = () => {
     // A bill added while looking at March is almost certainly a March bill.
     const start = month === currentMonthKey() ? today : firstDayOfMonth(month);
@@ -169,6 +193,50 @@ export default function App() {
   const goToThisMonth = () => goToMonth(currentMonthKey());
 
   const jumpToOccurrenceMonth = (occurrence: Occurrence) => goToMonth(monthKey(occurrence.date));
+
+  /**
+   * A couple of shortcuts for a keyboard, never the only way to do anything —
+   * a phone has no keyboard to press them on. Both stay out of the way of
+   * typing: a focused field, or a sheet already open and owning its own keys,
+   * disables them entirely rather than trying to guess intent.
+   */
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (editor || settling) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+
+      const target = event.target;
+      const typing =
+        target instanceof HTMLElement && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
+      if (typing) return;
+
+      if (event.key === "n" || event.key === "N") {
+        event.preventDefault();
+        openEditorForNew();
+      } else if (event.key === "ArrowLeft" && tab !== "settings") {
+        event.preventDefault();
+        stepMonth(-1);
+      } else if (event.key === "ArrowRight" && tab !== "settings") {
+        event.preventDefault();
+        stepMonth(1);
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  });
+
+  /** Replaces whatever toast is showing rather than queuing behind it — the
+   * newest thing that happened is the one worth a person's attention. */
+  const showToast = (message: string, actionLabel?: string, onAction?: () => void) => {
+    window.clearTimeout(toastTimer.current);
+    setToast({ id: Date.now(), message, actionLabel, onAction });
+    toastTimer.current = window.setTimeout(() => setToast(null), TOAST_MS);
+  };
+
+  const dismissToast = () => {
+    window.clearTimeout(toastTimer.current);
+    setToast(null);
+  };
 
   const toggleOccurrence = (occurrence: Occurrence) => {
     if (occurrence.payment) {
@@ -207,12 +275,21 @@ export default function App() {
     setEditor(null);
   };
 
+  /**
+   * Deleting is immediate and reversible rather than gated behind a confirm
+   * dialog: the record becomes a tombstone the moment this runs, so "Undo" on
+   * the toast that follows is just clearing it — no different in kind from
+   * unsettling a bill by tapping its tick again.
+   */
   const removeEntry = () => {
     if (!editor?.entry) return;
-    if (!window.confirm(t("form.deleteConfirm"))) return;
-    const id = editor.entry.id;
-    setLedger((current) => deleteEntry(current, id));
+    const { id, description } = editor.entry;
+    const stamp = new Date();
+    setLedger((current) => deleteEntry(current, id, stamp));
     setEditor(null);
+    showToast(t("toast.deleted", { description: description || t("form.expense") }), t("action.undo"), () => {
+      setLedger((current) => restoreEntry(current, id, stamp.toISOString()));
+    });
   };
 
   const exportBackup = () => {
@@ -324,6 +401,7 @@ export default function App() {
         <div className="view" key={`${tab}:${month}`} data-step={monthStep}>
           {tab === "month" ? (
             <MonthView
+              month={month}
               occurrences={occurrences}
               today={today}
               currency={settings.currency}
@@ -334,9 +412,11 @@ export default function App() {
               carriedIn={carriedIn}
               globalOverdueTotal={globalOverdueTotal}
               elsewhere={elsewhere}
+              history={history}
               onToggle={toggleOccurrence}
               onOpen={openEditorFor}
               onJumpElsewhere={jumpToOccurrenceMonth}
+              onSelectMonth={goToMonth}
             />
           ) : null}
 
@@ -410,6 +490,18 @@ export default function App() {
           t={t}
           onConfirm={(amount, paidOn) => settle(settling, amount, paidOn)}
           onClose={() => setSettling(null)}
+        />
+      ) : null}
+
+      {toast ? (
+        <Toast
+          key={toast.id}
+          message={toast.message}
+          actionLabel={toast.actionLabel}
+          onAction={toast.onAction}
+          onDismiss={dismissToast}
+          closeLabel={t("action.close")}
+          durationMs={TOAST_MS}
         />
       ) : null}
     </div>

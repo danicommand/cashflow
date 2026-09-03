@@ -214,6 +214,7 @@ export function SettingsView({
       <section className="panel">
         <h2>{t("settings.about")}</h2>
         <p className="panel-hint">{t("settings.aboutText")}</p>
+        <p className="panel-hint">{t("settings.shortcuts")}</p>
       </section>
     </div>
   );

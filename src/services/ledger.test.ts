@@ -7,6 +7,7 @@ import {
   deleteEntry,
   draftFrom,
   knownCategories,
+  restoreEntry,
   settleOccurrence,
   unsettleOccurrence,
   updateEntry,
@@ -99,6 +100,69 @@ describe("deleteEntry", () => {
     ledger = addEntry(ledger, draft({ description: "Power" }), NOW);
     ledger = deleteEntry(ledger, ledger.entries[0].id, NOW);
     expect(liveLedger(ledger).entries.map((entry) => entry.description)).toEqual(["Power"]);
+  });
+});
+
+describe("restoreEntry", () => {
+  it("undoes a delete, bringing the entry and its payments back", () => {
+    let ledger = addEntry(EMPTY, draft(), NOW);
+    const id = ledger.entries[0].id;
+    ledger = settleOccurrence(ledger, id, "2026-01-05", 120_000, "2026-01-05", NOW);
+    ledger = deleteEntry(ledger, id, NOW);
+
+    const restored = restoreEntry(ledger, id, NOW.toISOString(), NOW);
+    expect(restored.entries[0].deletedAt).toBeNull();
+    expect(restored.payments[0].deletedAt).toBeNull();
+  });
+
+  it("does nothing if the stamp does not match, so a stale undo cannot fire", () => {
+    // The toast that offers this undo can outlive the delete it belongs to
+    // being superseded by a newer one — e.g. delete, undo, delete again. The
+    // first toast's undo must not resurrect the second delete.
+    let ledger = addEntry(EMPTY, draft(), NOW);
+    const id = ledger.entries[0].id;
+    ledger = deleteEntry(ledger, id, NOW);
+
+    const laterStamp = "2026-02-01T00:00:00.000Z";
+    const restored = restoreEntry(ledger, id, laterStamp, NOW);
+    expect(restored.entries[0].deletedAt).toBe(NOW.toISOString());
+  });
+
+  it("does not resurrect a payment deleted separately from this entry", () => {
+    // Settle two occurrences, delete only one of them by hand (unsettle),
+    // then delete the whole entry. Restoring the entry must not bring back
+    // the payment that was already gone before the delete happened.
+    let ledger = addEntry(EMPTY, draft({ repeat: "monthly" }), NOW);
+    const id = ledger.entries[0].id;
+    ledger = settleOccurrence(ledger, id, "2026-01-05", 120_000, "2026-01-05", NOW);
+    ledger = settleOccurrence(ledger, id, "2026-02-05", 120_000, "2026-02-05", NOW);
+
+    const earlierUnsettle = new Date("2026-02-10T00:00:00.000Z");
+    ledger = unsettleOccurrence(ledger, id, "2026-01-05", earlierUnsettle);
+
+    const deleteStamp = new Date("2026-02-15T00:00:00.000Z");
+    ledger = deleteEntry(ledger, id, deleteStamp);
+
+    const restored = restoreEntry(ledger, id, deleteStamp.toISOString(), NOW);
+    const jan = restored.payments.find((payment) => payment.occurrence === "2026-01-05");
+    const feb = restored.payments.find((payment) => payment.occurrence === "2026-02-05");
+    expect(jan?.deletedAt).toBe(earlierUnsettle.toISOString());
+    expect(feb?.deletedAt).toBeNull();
+  });
+
+  it("leaves an unrelated entry's delete alone", () => {
+    let ledger = addEntry(EMPTY, draft({ description: "Rent" }), NOW);
+    ledger = addEntry(ledger, draft({ description: "Power" }), NOW);
+    const rentId = ledger.entries[0].id;
+    const powerId = ledger.entries[1].id;
+    ledger = deleteEntry(ledger, rentId, NOW);
+    ledger = deleteEntry(ledger, powerId, NOW);
+
+    const restored = restoreEntry(ledger, rentId, NOW.toISOString(), NOW);
+    expect(restored.entries.find((entry) => entry.id === rentId)?.deletedAt).toBeNull();
+    expect(restored.entries.find((entry) => entry.id === powerId)?.deletedAt).toBe(
+      NOW.toISOString(),
+    );
   });
 });
 

@@ -29,6 +29,12 @@
   --alert: #c0392f;
   --alert-soft: rgba(192, 57, 47, 0.1);
 
+  /* The toast's surface is `--ink` on `--page` — deliberately inverted from
+     the rest of the page, so it reads as an overlay in either theme. Its own
+     accent has to be the OTHER theme's, tuned for a background this theme
+     does not otherwise show. */
+  --toast-accent: #6f9bff;
+
   --radius: 14px;
   --radius-small: 9px;
   --shadow: 0 1px 2px rgba(16, 20, 30, 0.06), 0 8px 24px rgba(16, 20, 30, 0.06);
@@ -73,6 +79,8 @@
     --alert: #ff7a6e;
     --alert-soft: rgba(255, 122, 110, 0.14);
 
+    --toast-accent: #2f6df6;
+
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 28px rgba(0, 0, 0, 0.35);
   }
 }
@@ -97,6 +105,8 @@
   --good-soft: rgba(76, 199, 154, 0.16);
   --alert: #ff7a6e;
   --alert-soft: rgba(255, 122, 110, 0.14);
+
+  --toast-accent: #2f6df6;
 
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 28px rgba(0, 0, 0, 0.35);
 }
@@ -369,6 +379,113 @@ svg {
   width: 24px;
   height: 24px;
   stroke-width: 2.2;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  /* Clears the FAB's full footprint (20px offset + its 56px) with room to
+     spare, so the two never compete for the same horizontal space on a
+     narrow phone — stacked, not squeezed side by side. */
+  bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  padding: 12px 8px 12px 16px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--page);
+  box-shadow: var(--shadow);
+  transform: translateX(-50%);
+  animation: toast-in var(--normal) var(--ease-arrive) both;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translate3d(-50%, 14px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.toast-message {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toast-action {
+  flex: none;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  /* Not var(--accent): the toast's background is `--ink`, the inverse of the
+     page, so it is dark while the app is light and light while the app is
+     dark. The current theme's own accent is tuned for contrast against the
+     page, not against its inverse — using it here would put light-mode's
+     medium blue on a light background half the time. --toast-accent is tuned
+     for the surface this button actually sits on. */
+  color: var(--toast-accent);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.toast-close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--page);
+  opacity: 0.6;
+  cursor: pointer;
+}
+
+.toast-close svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.2;
+}
+
+.toast-close:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* The one clock in the app a person is meant to race — how long is left to
+   tap Undo, read at a glance rather than counted down in text. */
+.toast-timer {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 6px;
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.25);
+  transform-origin: left center;
+  animation: toast-timer linear forwards;
+}
+
+@keyframes toast-timer {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
 }
 
 :focus-visible {
@@ -724,6 +841,92 @@ svg {
 
 .bar-value {
   font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------ trend -- */
+
+.trend {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  padding: 18px 14px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.trend-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.trend-amount {
+  height: 14px;
+  color: var(--ink-faint);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.trend-col.current .trend-amount {
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+/* The track is a fixed-height column; the fill inside it is what scales, so
+   every bar shares one baseline no matter how the amounts compare. */
+.trend-track {
+  position: relative;
+  width: 100%;
+  height: 74px;
+  border-radius: 6px;
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+
+.trend-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  border-radius: 6px;
+  background: var(--ink-faint);
+  transition:
+    height 420ms var(--ease-arrive),
+    background var(--fast) var(--ease-arrive);
+}
+
+.trend-col:hover .trend-fill {
+  background: var(--ink-soft);
+}
+
+.trend-col.current .trend-fill {
+  background: var(--accent);
+}
+
+.trend-label {
+  color: var(--ink-soft);
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.trend-col.current .trend-label {
+  color: var(--ink);
+  font-weight: 600;
 }
 
 /* --------------------------------------------------------------- calendar -- */
@@ -1551,6 +1754,42 @@ svg {
   }
 }
 
+/* Each column's bar starts a beat after the one to its left, so the chart
+   reads left to right the way the months themselves do. Capped low enough
+   that six columns still finish well inside a second. */
+.trend-col:nth-child(1) .trend-fill {
+  animation-delay: 0ms;
+}
+.trend-col:nth-child(2) .trend-fill {
+  animation-delay: 45ms;
+}
+.trend-col:nth-child(3) .trend-fill {
+  animation-delay: 90ms;
+}
+.trend-col:nth-child(4) .trend-fill {
+  animation-delay: 135ms;
+}
+.trend-col:nth-child(5) .trend-fill {
+  animation-delay: 180ms;
+}
+.trend-col:nth-child(6) .trend-fill {
+  animation-delay: 225ms;
+}
+
+.trend-fill {
+  transform-origin: bottom center;
+  animation: trend-grow 480ms var(--ease-arrive) both;
+}
+
+@keyframes trend-grow {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
 /* -- the calendar grid --------------------------------------------------- */
 
 /*
@@ -1794,6 +2033,8 @@ svg {
   .sheet-backdrop,
   .sheet-body .form > *,
   .bar-track span,
+  .trend-fill,
+  .toast,
   .form-error {
     animation: none;
   }

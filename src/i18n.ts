@@ -114,6 +114,10 @@ const en = {
 
   "elsewhere.title": "Not this month",
 
+  "trend.title": "Recent months",
+
+  "toast.deleted": "{description} deleted",
+
   "settings.appearance": "Appearance",
   "settings.language": "Language",
   "settings.currency": "Currency",
@@ -150,6 +154,7 @@ const en = {
   "settings.about": "About",
   "settings.aboutText":
     "Everything is stored on this device first, so the app works with no connection. Sync only runs when a personal code is set.",
+  "settings.shortcuts": "On a keyboard: N adds a bill, the arrow keys change the month.",
 } as const;
 
 export type TranslationKey = keyof typeof en;
@@ -261,6 +266,10 @@ const pt: Record<TranslationKey, string> = {
 
   "elsewhere.title": "Fora deste mês",
 
+  "trend.title": "Últimos meses",
+
+  "toast.deleted": "{description} excluído",
+
   "settings.appearance": "Aparência",
   "settings.language": "Idioma",
   "settings.currency": "Moeda",
@@ -297,6 +306,7 @@ const pt: Record<TranslationKey, string> = {
   "settings.about": "Sobre",
   "settings.aboutText":
     "Tudo fica guardado primeiro neste aparelho, então o app funciona sem internet. A sincronização só acontece quando há um código pessoal.",
+  "settings.shortcuts": "No teclado: N lança uma conta, as setas trocam o mês.",
 };
 
 const DICTIONARIES: Record<Language, Record<TranslationKey, string>> = { en, pt };

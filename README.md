@@ -26,6 +26,13 @@ English and Portuguese, light and dark, USD / BRL / EUR / GBP.
   different month than the one you're looking at, with one tap to jump there.
 - **See the calendar**: which days the bills land on, with the unpaid total
   under each date.
+- **See recent months compared**, as a small chart of what was actually paid
+  each month — tap a bar to jump straight to that month.
+- **Delete without a confirm dialog.** Removing a bill is instant and
+  reversible: a toast offers Undo for a few seconds, because the record is
+  already just a tombstone the moment it disappears.
+- **A couple of keyboard shortcuts**: `N` adds a bill, the arrow keys change
+  the month — never the only way to do either, since a phone has no keyboard.
 - **Sync across devices** with a personal code (optional, see below).
 - **Back up and restore** a JSON file. Restoring merges rather than replaces.
 
@@ -85,6 +92,21 @@ a `Date` through the local `(y, m, d)` constructor.
 **The device is the source of truth.** Every edit is saved to `localStorage`
 first and the app works with no connection at all. Sync is a background
 reconciliation, never a prerequisite.
+
+**Delete is undo-able because the ledger already tombstones.** `deleteEntry`
+never removes a record; it sets `deletedAt`. `restoreEntry` (in the same
+file, `src/services/ledger.ts`) just clears it again — matched to the exact
+timestamp the delete wrote, so undoing a delete from a few seconds ago can't
+also resurrect an unrelated record that happened to be removed earlier. That
+match is what makes it safe to skip the native confirm dialog: the toast's
+"Undo" button is calling the same machinery sync already depends on, not a
+new deletion mode bolted on for the toast.
+
+**The trend chart reads `paidTotal` for a trailing window of months**
+(`spendHistory` in `src/services/trend.ts`), computed the same way each
+month's own numbers are — there is no separate aggregate table to keep in
+sync, just the existing `occurrencesInMonth` → `summarise` pipeline called
+six times.
 
 ## Motion
 
