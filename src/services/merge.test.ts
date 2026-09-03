@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { Entry, Ledger, Payment } from "../types.ts";
+import type { Budget, Entry, Ledger, Payment } from "../types.ts";
 import {
   emptyLedger,
   liveLedger,
@@ -36,6 +36,17 @@ function payment(overrides: Partial<Payment> = {}): Payment {
     paidOn: "2026-01-05",
     amount: 120_000,
     updatedAt: "2026-01-05T00:00:00.000Z",
+    deletedAt: null,
+    ...overrides,
+  };
+}
+
+function budget(overrides: Partial<Budget> = {}): Budget {
+  return {
+    id: "b1",
+    category: "Home",
+    limit: 150_000,
+    updatedAt: "2026-01-01T00:00:00.000Z",
     deletedAt: null,
     ...overrides,
   };
@@ -100,11 +111,16 @@ describe("mergeRecords", () => {
 
 describe("mergeLedgers", () => {
   it("merges both collections at once", () => {
-    const local: Ledger = { entries: [entry({ id: "a" })], payments: [] };
-    const remote: Ledger = { entries: [], payments: [payment({ entryId: "a", id: "p1" })] };
+    const local: Ledger = { entries: [entry({ id: "a" })], payments: [], budgets: [] };
+    const remote: Ledger = {
+      entries: [],
+      payments: [payment({ entryId: "a", id: "p1" })],
+      budgets: [budget()],
+    };
     const merged = mergeLedgers(local, remote);
     expect(merged.entries).toHaveLength(1);
     expect(merged.payments).toHaveLength(1);
+    expect(merged.budgets).toHaveLength(1);
   });
 
   it("resolves the same bill ticked off on two devices to one payment", () => {
@@ -113,14 +129,32 @@ describe("mergeLedgers", () => {
     const phone: Ledger = {
       entries: [entry()],
       payments: [payment({ amount: 120_000, updatedAt: "2026-01-05T09:00:00.000Z" })],
+      budgets: [],
     };
     const laptop: Ledger = {
       entries: [entry()],
       payments: [payment({ amount: 118_000, updatedAt: "2026-01-05T10:00:00.000Z" })],
+      budgets: [],
     };
     const merged = mergeLedgers(phone, laptop);
     expect(merged.payments).toHaveLength(1);
     expect(merged.payments[0].amount).toBe(118_000);
+  });
+
+  it("resolves the same budget edited on two devices to one row", () => {
+    const phone: Ledger = {
+      entries: [],
+      payments: [],
+      budgets: [budget({ limit: 150_000, updatedAt: "2026-01-05T09:00:00.000Z" })],
+    };
+    const laptop: Ledger = {
+      entries: [],
+      payments: [],
+      budgets: [budget({ limit: 175_000, updatedAt: "2026-01-05T10:00:00.000Z" })],
+    };
+    const merged = mergeLedgers(phone, laptop);
+    expect(merged.budgets).toHaveLength(1);
+    expect(merged.budgets[0].limit).toBe(175_000);
   });
 });
 
@@ -132,7 +166,8 @@ describe("pruneLedger", () => {
       deletedAt: "2026-05-20T00:00:00.000Z",
       updatedAt: "2026-05-20T00:00:00.000Z",
     });
-    expect(pruneLedger({ entries: [recent], payments: [] }, now).entries).toHaveLength(1);
+    const ledger: Ledger = { entries: [recent], payments: [], budgets: [] };
+    expect(pruneLedger(ledger, now).entries).toHaveLength(1);
   });
 
   it("drops a tombstone every device has long since seen", () => {
@@ -140,7 +175,8 @@ describe("pruneLedger", () => {
       deletedAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-01-01T00:00:00.000Z",
     });
-    expect(pruneLedger({ entries: [ancient], payments: [] }, now).entries).toHaveLength(0);
+    const ledger: Ledger = { entries: [ancient], payments: [], budgets: [] };
+    expect(pruneLedger(ledger, now).entries).toHaveLength(0);
   });
 
   it("drops payments whose entry is gone for good", () => {
@@ -149,13 +185,29 @@ describe("pruneLedger", () => {
         entry({ deletedAt: "2025-01-01T00:00:00.000Z", updatedAt: "2025-01-01T00:00:00.000Z" }),
       ],
       payments: [payment()],
+      budgets: [],
     };
     expect(pruneLedger(ledger, now).payments).toHaveLength(0);
   });
 
   it("keeps payments belonging to a live entry", () => {
-    const ledger: Ledger = { entries: [entry()], payments: [payment()] };
+    const ledger: Ledger = { entries: [entry()], payments: [payment()], budgets: [] };
     expect(pruneLedger(ledger, now).payments).toHaveLength(1);
+  });
+
+  it("keeps a recent budget tombstone and drops an ancient one", () => {
+    const recent = budget({
+      id: "recent",
+      deletedAt: "2026-05-20T00:00:00.000Z",
+      updatedAt: "2026-05-20T00:00:00.000Z",
+    });
+    const ancient = budget({
+      id: "ancient",
+      deletedAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    });
+    const ledger: Ledger = { entries: [], payments: [], budgets: [recent, ancient] };
+    expect(pruneLedger(ledger, now).budgets.map((b) => b.id)).toEqual(["recent"]);
   });
 });
 
@@ -164,10 +216,12 @@ describe("liveLedger", () => {
     const ledger: Ledger = {
       entries: [entry({ id: "a" }), entry({ id: "b", deletedAt: "2026-01-02T00:00:00.000Z" })],
       payments: [payment({ deletedAt: "2026-01-02T00:00:00.000Z" })],
+      budgets: [budget({ deletedAt: "2026-01-02T00:00:00.000Z" })],
     };
     const live = liveLedger(ledger);
     expect(live.entries.map((record) => record.id)).toEqual(["a"]);
     expect(live.payments).toEqual([]);
+    expect(live.budgets).toEqual([]);
   });
 });
 
@@ -207,5 +261,30 @@ describe("sanitiseLedger", () => {
       payments: [],
     });
     expect(result.entries[0].description.length).toBeLessThanOrEqual(200);
+  });
+
+  it("defaults budgets to empty when the field is missing entirely", () => {
+    // Every backup and sync payload written before budgets existed lacks the
+    // field outright — that must read as "no budgets", not as junk data.
+    const result = sanitiseLedger({ entries: [], payments: [] });
+    expect(result.budgets).toEqual([]);
+  });
+
+  it("sanitises budgets the same way it sanitises payments", () => {
+    const result = sanitiseLedger({
+      entries: [],
+      payments: [],
+      budgets: [budget({ id: "ok" }), { category: "no id" }, null],
+    });
+    expect(result.budgets.map((record) => record.id)).toEqual(["ok"]);
+  });
+
+  it("never lets a budget limit go negative", () => {
+    const result = sanitiseLedger({
+      entries: [],
+      payments: [],
+      budgets: [{ ...budget(), limit: -500 }],
+    });
+    expect(result.budgets[0].limit).toBe(0);
   });
 });

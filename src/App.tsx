@@ -1,42 +1,57 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { CalendarView } from "./components/CalendarView.tsx";
+import { CategorySheet } from "./components/CategorySheet.tsx";
 import { EntrySheet } from "./components/EntrySheet.tsx";
+import { LockScreen } from "./components/LockScreen.tsx";
 import { MonthView } from "./components/MonthView.tsx";
+import { SearchSheet } from "./components/SearchSheet.tsx";
 import { SettingsView } from "./components/SettingsView.tsx";
 import { SettleSheet } from "./components/SettleSheet.tsx";
 import { Toast } from "./components/Toast.tsx";
+import { YearReviewSheet } from "./components/YearReviewSheet.tsx";
 import { useFabVisible } from "./hooks/useFabVisible.ts";
 import { useSync } from "./hooks/useSync.ts";
 import { FLIGHT_CATCH_MS, flyToTotal, measureOccurrenceAmount } from "./motion/flight.ts";
 import { translatorFor } from "./i18n.ts";
 import type { Entry, Ledger, Occurrence, Settings } from "./types.ts";
+import { budgetFor } from "./services/budgets.ts";
+import { toCsv } from "./services/csv.ts";
 import {
   addDays,
   currentMonthKey,
   firstDayOfMonth,
   lastDayOfMonth,
   monthKey,
+  parseMonthKey,
   shiftMonthKey,
   todayIso,
 } from "./services/dates.ts";
 import { formatMonthTitle } from "./services/formats.ts";
+import { instalmentProgress } from "./services/instalments.ts";
 import {
   addEntry,
   blankDraft,
   deleteEntry,
   draftFrom,
   knownCategories,
+  removeBudget,
+  renameCategory,
   restoreEntry,
+  setBudget,
   settleOccurrence,
   unsettleOccurrence,
   updateEntry,
   type EntryDraft,
 } from "./services/ledger.ts";
+import { clearLock, hasLock, setLock, verifyLock } from "./services/lock.ts";
+import { applyUpdate, UPDATE_EVENT } from "./pwa.ts";
 import { mergeLedgers } from "./services/merge.ts";
 import { occurrencesInMonth, overdueExpenses, upcomingExpenses } from "./services/occurrences.ts";
+import type { SearchResult } from "./services/search.ts";
 import { runningBalance } from "./services/summary.ts";
 import { spendHistory } from "./services/trend.ts";
+import { yearSummary } from "./services/yearReview.ts";
 import {
   buildBackup,
   clearLedger,
@@ -95,6 +110,11 @@ export default function App() {
   const [toast, setToast] = useState<ToastState | null>(null);
   const toastTimer = useRef<number | undefined>(undefined);
   const fabVisible = useFabVisible();
+  const [locked, setLocked] = useState(hasLock);
+  const [lockEnabled, setLockEnabled] = useState(hasLock);
+  const [managingCategory, setManagingCategory] = useState<string | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [viewingYear, setViewingYear] = useState(false);
 
   const t = useMemo(() => translatorFor(settings.language), [settings.language]);
   const today = todayIso();
@@ -202,7 +222,9 @@ export default function App() {
    */
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (editor || settling) return;
+      if (locked || editor || settling || managingCategory !== null || searching || viewingYear) {
+        return;
+      }
       if (event.metaKey || event.ctrlKey || event.altKey) return;
 
       const target = event.target;
@@ -213,6 +235,9 @@ export default function App() {
       if (event.key === "n" || event.key === "N") {
         event.preventDefault();
         openEditorForNew();
+      } else if (event.key === "/") {
+        event.preventDefault();
+        setSearching(true);
       } else if (event.key === "ArrowLeft" && tab !== "settings") {
         event.preventDefault();
         stepMonth(-1);
@@ -237,6 +262,20 @@ export default function App() {
     window.clearTimeout(toastTimer.current);
     setToast(null);
   };
+
+  /**
+   * A new service worker installing surfaces here as an ordinary toast, not
+   * a silent takeover — the same acknowledgment pattern deleting a bill
+   * uses, so an update reads as "something happened, here's the option" the
+   * same way everything else in the app does.
+   */
+  useEffect(() => {
+    const onUpdate = () => {
+      showToast(t("update.available"), t("update.reload"), applyUpdate);
+    };
+    window.addEventListener(UPDATE_EVENT, onUpdate);
+    return () => window.removeEventListener(UPDATE_EVENT, onUpdate);
+  }, [t]);
 
   const toggleOccurrence = (occurrence: Occurrence) => {
     if (occurrence.payment) {
@@ -292,6 +331,35 @@ export default function App() {
     });
   };
 
+  /** A new entry pre-filled from an existing one, dated today rather than
+   * copying the original's date — a duplicate is a new thing happening now,
+   * not a second record of the same day. */
+  const duplicateEntry = () => {
+    if (!editor?.entry) return;
+    setEditor({ entry: null, draft: { ...draftFrom(editor.entry), dueDate: today } });
+  };
+
+  /**
+   * Rename and budget change land as one ledger update, in that order — a
+   * rename retargets the existing budget row to the new name (see
+   * `renameCategory`), so setting or clearing the budget afterwards, under
+   * the new name, is what actually lands on the row the person is looking
+   * at rather than creating an orphaned one under the name just vacated.
+   */
+  const saveCategory = (oldName: string, newName: string, limit: number | null) => {
+    setLedger((current) => {
+      const renamed = newName === oldName ? current : renameCategory(current, oldName, newName);
+      if (limit !== null) return setBudget(renamed, newName, limit);
+      const existing = budgetFor(renamed.budgets, newName);
+      return existing ? removeBudget(renamed, existing.id) : renamed;
+    });
+  };
+
+  const jumpToSearchResult = (result: SearchResult) => {
+    setSearching(false);
+    goToMonth(result.month);
+  };
+
   const exportBackup = () => {
     const blob = new Blob([JSON.stringify(buildBackup(ledger), null, 2)], {
       type: "application/json",
@@ -323,10 +391,52 @@ export default function App() {
 
   const eraseLocal = () => {
     clearLedger();
-    setLedger({ entries: [], payments: [] });
+    setLedger({ entries: [], payments: [], budgets: [] });
+  };
+
+  const exportCsv = () => {
+    const blob = new Blob([toCsv(ledger.entries, ledger.payments)], {
+      type: "text/csv;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `cashflow-${today}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const unlock = async (pin: string): Promise<boolean> => {
+    const ok = await verifyLock(pin);
+    if (ok) setLocked(false);
+    return ok;
+  };
+
+  const setLockHandler = (pin: string) => {
+    void setLock(pin).then(() => setLockEnabled(true));
+  };
+
+  const removeLockHandler = () => {
+    clearLock();
+    setLockEnabled(false);
+  };
+
+  /** The lock screen's own "I forgot it" path: the device's copy of the
+   * ledger is the price of a forgotten PIN, spelled out to the person before
+   * they get here — see `lock.resetWarning`. */
+  const resetDeviceForLock = () => {
+    clearLock();
+    clearLedger();
+    setLedger({ entries: [], payments: [], budgets: [] });
+    setLockEnabled(false);
+    setLocked(false);
   };
 
   const showsMonthNav = tab === "month" || tab === "calendar";
+
+  if (locked) {
+    return <LockScreen t={t} onUnlock={unlock} onReset={resetDeviceForLock} />;
+  }
 
   return (
     <div className="app">
@@ -358,6 +468,18 @@ export default function App() {
             </button>
           ))}
         </nav>
+
+        <button
+          type="button"
+          className="icon-button"
+          aria-label={t("search.title")}
+          onClick={() => setSearching(true)}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <circle cx="11" cy="11" r="7" />
+            <path d="M21 21l-4.3-4.3" />
+          </svg>
+        </button>
       </header>
 
       {showsMonthNav ? (
@@ -413,10 +535,13 @@ export default function App() {
               globalOverdueTotal={globalOverdueTotal}
               elsewhere={elsewhere}
               history={history}
+              budgets={ledger.budgets}
               onToggle={toggleOccurrence}
               onOpen={openEditorFor}
               onJumpElsewhere={jumpToOccurrenceMonth}
               onSelectMonth={goToMonth}
+              onManageCategory={setManagingCategory}
+              onOpenYearReview={() => setViewingYear(true)}
             />
           ) : null}
 
@@ -444,9 +569,13 @@ export default function App() {
               sync={syncStatus}
               onSyncNow={syncNow}
               onExport={exportBackup}
+              onExportCsv={exportCsv}
               onImport={(file) => void importBackup(file)}
               onErase={eraseLocal}
               importMessage={importMessage}
+              hasLock={lockEnabled}
+              onSetLock={setLockHandler}
+              onRemoveLock={removeLockHandler}
               t={t}
             />
           ) : null}
@@ -469,14 +598,24 @@ export default function App() {
 
       {editor ? (
         <EntrySheet
+          // EntrySheet seeds its fields from `draft` only on mount — without
+          // this key, duplicating an entry while its own editor is open
+          // would swap the draft in but leave every field showing what was
+          // being edited a moment ago, since React would see the same
+          // element and just re-render it rather than remount it.
+          key={editor.entry?.id ?? "new"}
           draft={editor.draft}
           isNew={editor.entry === null}
           categories={knownCategories(ledger)}
           currency={settings.currency}
           language={settings.language}
           t={t}
+          instalmentProgress={
+            editor.entry ? instalmentProgress(editor.entry, ledger.payments) : null
+          }
           onSave={saveEntry}
           onDelete={editor.entry ? removeEntry : undefined}
+          onDuplicate={editor.entry ? duplicateEntry : undefined}
           onClose={() => setEditor(null)}
         />
       ) : null}
@@ -490,6 +629,40 @@ export default function App() {
           t={t}
           onConfirm={(amount, paidOn) => settle(settling, amount, paidOn)}
           onClose={() => setSettling(null)}
+        />
+      ) : null}
+
+      {managingCategory !== null ? (
+        <CategorySheet
+          category={managingCategory}
+          budgetLimit={budgetFor(ledger.budgets, managingCategory)?.limit ?? null}
+          otherCategories={knownCategories(ledger).filter((name) => name !== managingCategory)}
+          currency={settings.currency}
+          language={settings.language}
+          t={t}
+          onSave={(newName, limit) => saveCategory(managingCategory, newName, limit)}
+          onClose={() => setManagingCategory(null)}
+        />
+      ) : null}
+
+      {searching ? (
+        <SearchSheet
+          entries={ledger.entries}
+          currency={settings.currency}
+          language={settings.language}
+          t={t}
+          onJump={jumpToSearchResult}
+          onClose={() => setSearching(false)}
+        />
+      ) : null}
+
+      {viewingYear ? (
+        <YearReviewSheet
+          review={yearSummary(ledger.entries, ledger.payments, parseMonthKey(month).year, today)}
+          currency={settings.currency}
+          language={settings.language}
+          t={t}
+          onClose={() => setViewingYear(false)}
         />
       ) : null}
 

@@ -5,6 +5,7 @@ import type { CurrencyCode, Language, Settings, ThemePreference } from "../types
 import { CURRENCIES, currencySymbol } from "../services/money.ts";
 import { formatTime } from "../services/formats.ts";
 import { generateSyncCode, isUsableCode } from "../services/syncClient.ts";
+import { MIN_PIN_LENGTH } from "../services/lock.ts";
 import type { SyncStatus } from "../hooks/useSync.ts";
 
 interface SettingsViewProps {
@@ -14,9 +15,13 @@ interface SettingsViewProps {
   sync: SyncStatus;
   onSyncNow: () => void;
   onExport: () => void;
+  onExportCsv: () => void;
   onImport: (file: File) => void;
   onErase: () => void;
   importMessage: string | null;
+  hasLock: boolean;
+  onSetLock: (pin: string) => void;
+  onRemoveLock: () => void;
   t: Translator;
 }
 
@@ -33,16 +38,39 @@ export function SettingsView({
   sync,
   onSyncNow,
   onExport,
+  onExportCsv,
   onImport,
   onErase,
   importMessage,
+  hasLock,
+  onSetLock,
+  onRemoveLock,
   t,
 }: SettingsViewProps) {
   const [code, setCode] = useState(settings.syncCode);
   const fileInput = useRef<HTMLInputElement>(null);
 
+  const [newPin, setNewPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [lockError, setLockError] = useState<string | null>(null);
+
   const codeReady = isUsableCode(code);
   const connected = settings.syncCode.length > 0;
+
+  const submitPin = () => {
+    if (newPin.length < MIN_PIN_LENGTH) {
+      setLockError(t("settings.lockTooShort"));
+      return;
+    }
+    if (newPin !== confirmPin) {
+      setLockError(t("settings.lockMismatch"));
+      return;
+    }
+    onSetLock(newPin);
+    setNewPin("");
+    setConfirmPin("");
+    setLockError(null);
+  };
 
   return (
     <div className="settings">
@@ -175,6 +203,9 @@ export function SettingsView({
           <button type="button" className="button" onClick={onExport}>
             {t("settings.export")}
           </button>
+          <button type="button" className="button" onClick={onExportCsv}>
+            {t("settings.exportCsv")}
+          </button>
           <button
             type="button"
             className="button"
@@ -207,6 +238,64 @@ export function SettingsView({
             }}
           >
             {t("settings.erase")}
+          </button>
+        </div>
+      </section>
+
+      <section className="panel">
+        <h2>{t("settings.lock")}</h2>
+        <p className="panel-hint">{t("settings.lockHelp")}</p>
+
+        {hasLock ? (
+          <div className="button-row">
+            <button type="button" className="button danger-text" onClick={onRemoveLock}>
+              {t("settings.lockRemove")}
+            </button>
+          </div>
+        ) : null}
+
+        <div className="field-row">
+          <label className="field">
+            <span className="field-label">
+              {hasLock ? t("settings.lockNewPin") : t("settings.lockPin")}
+            </span>
+            <input
+              type="password"
+              inputMode="numeric"
+              autoComplete="off"
+              value={newPin}
+              placeholder={t("settings.lockPinPlaceholder")}
+              onChange={(event) => {
+                setNewPin(event.target.value);
+                setLockError(null);
+              }}
+            />
+          </label>
+          <label className="field">
+            <span className="field-label">{t("settings.lockConfirmPin")}</span>
+            <input
+              type="password"
+              inputMode="numeric"
+              autoComplete="off"
+              value={confirmPin}
+              onChange={(event) => {
+                setConfirmPin(event.target.value);
+                setLockError(null);
+              }}
+            />
+          </label>
+        </div>
+
+        {lockError ? <p className="field-hint warn">{lockError}</p> : null}
+
+        <div className="button-row">
+          <button
+            type="button"
+            className="button primary"
+            disabled={!newPin || !confirmPin}
+            onClick={submitPin}
+          >
+            {hasLock ? t("settings.lockChange") : t("settings.lockSet")}
           </button>
         </div>
       </section>

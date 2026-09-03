@@ -1,5 +1,6 @@
 import type { Translator } from "../i18n.ts";
 import type { CurrencyCode, Language, Occurrence } from "../types.ts";
+import { categoryColorIndex } from "../services/categoryColor.ts";
 import { describeDueDate, formatDate } from "../services/formats.ts";
 import { formatMoney } from "../services/money.ts";
 
@@ -87,7 +88,9 @@ export function OccurrenceRow({
         <span className="row-meta">
           <span className={overdue ? "meta-late" : undefined}>{meta}</span>
           {occurrence.entry.category ? (
-            <span className="chip">{occurrence.entry.category}</span>
+            <span className={`chip cat-${categoryColorIndex(occurrence.entry.category)}`}>
+              {occurrence.entry.category}
+            </span>
           ) : null}
           {instalment ? <span className="chip subtle">{instalment}</span> : null}
         </span>

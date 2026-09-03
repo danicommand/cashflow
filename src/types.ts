@@ -51,10 +51,23 @@ export interface Payment extends SyncedRecord {
   amount: number;
 }
 
+/**
+ * A monthly spending cap for one category. Matched to `Entry.category` by
+ * exact string, the same way category chips and the "Where it goes"
+ * breakdown already do — there is no separate category table to keep in
+ * sync with it.
+ */
+export interface Budget extends SyncedRecord {
+  category: string;
+  /** Cents per month. */
+  limit: number;
+}
+
 /** Everything the app owns, and the unit that gets synced. */
 export interface Ledger {
   entries: Entry[];
   payments: Payment[];
+  budgets: Budget[];
 }
 
 export type Language = "en" | "pt";

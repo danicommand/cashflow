@@ -31,10 +31,28 @@ English and Portuguese, light and dark, USD / BRL / EUR / GBP.
 - **Delete without a confirm dialog.** Removing a bill is instant and
   reversible: a toast offers Undo for a few seconds, because the record is
   already just a tombstone the moment it disappears.
-- **A couple of keyboard shortcuts**: `N` adds a bill, the arrow keys change
-  the month — never the only way to do either, since a phone has no keyboard.
+- **A couple of keyboard shortcuts**: `N` adds a bill, `/` opens search, the
+  arrow keys change the month — never the only way to do any of them, since a
+  phone has no keyboard.
+- **Set a monthly budget per category** and see it as you spend — a progress
+  bar under "Where it goes" that turns red once a category goes over.
+- **Search across every month at once**, by name or category, for the bill
+  you remember but can't place — everything else in the app is scoped to a
+  month or a short window; this is the one place that looks at all of it.
+- **Duplicate a bill** instead of retyping a near-identical one.
+- **Track an instalment plan's payoff** — how much of the total is left, not
+  just which instalment you're on.
+- **A year in review** — total paid and received, the category that took the
+  most, twelve months as a small chart. One tap from "Recent months."
+- **Rename or merge a category** everywhere it's used at once, from the
+  category itself — no hunting down every entry that used the old name.
+- **An optional PIN lock**, entirely local — see below for what it does and
+  does not protect.
+- **Install it** — a real app icon on your home screen and a usable offline
+  shell, not just a bookmark.
 - **Sync across devices** with a personal code (optional, see below).
-- **Back up and restore** a JSON file. Restoring merges rather than replaces.
+- **Back up and restore** a JSON file, or export a CSV for a spreadsheet.
+  Restoring the JSON backup merges rather than replaces.
 
 ## Running it
 
@@ -106,7 +124,24 @@ new deletion mode bolted on for the toast.
 (`spendHistory` in `src/services/trend.ts`), computed the same way each
 month's own numbers are — there is no separate aggregate table to keep in
 sync, just the existing `occurrencesInMonth` → `summarise` pipeline called
-six times.
+six times. **Year in review** (`yearSummary`) is the same idea at twelve
+months, and its category ranking deliberately uses what was actually *paid*
+per category, not billed — an entirely unpaid subscription must not read as
+"the biggest category of the year" ahead of everything real money went to.
+
+**A budget belongs to a category name**, matched by exact string the same
+way category chips already are — there is no separate category table.
+Renaming a category and changing its budget in the same save has to land as
+one ledger update (`saveCategory` in `src/App.tsx`): a rename retargets the
+existing budget row first, and only then does the budget change apply, under
+the new name — doing those as two independent calls left an earlier build
+setting the budget on the name just vacated, orphaned the moment it landed.
+
+**Category colour is hashed from the name** (`categoryColorIndex`), not
+stored or synced. The same category is always the same colour everywhere for
+free, and one seven-swatch palette works in both themes because it is only
+ever used as a fill or a small dot, never as text — the contrast rules that
+apply to body copy don't apply to a bar's fill on a neutral track.
 
 ## Motion
 
@@ -167,6 +202,45 @@ bill offline produce one record rather than two.
 Housekeeping is in the same place as the growth: tombstones older than 90 days
 are dropped on every sync, and spaces untouched for 400 days are deleted by a
 sweep that runs on roughly one request in a hundred.
+
+## The PIN lock, and what it does and does not protect
+
+Off until a PIN is set, in Settings. What is stored (`src/services/lock.ts`)
+is a salted SHA-256 hash, not the PIN — the same shape a real login system
+uses, so a copy of localStorage does not hand over the PIN itself.
+
+There is no recovery path, by construction: a purely local, no-account system
+has no way to verify who is asking to reset a forgotten PIN. The lock screen
+says so plainly rather than hiding it behind a vague link — "Forgot your
+PIN?" leads straight to the same weight as Settings' "Erase everything," because
+that is genuinely what it does. If sync was on, the data survives in the
+cloud under the same personal code and can be pulled back down after.
+
+It also only locks the app on load, not continuously — closing and reopening
+the app (or a fresh tab) shows the lock screen; leaving the app open in the
+background does not re-lock it after some idle period. That is a real
+limit, not an oversight: a timer-based re-lock is easy to get annoying and
+easy to get wrong, and was left out rather than shipped half-considered.
+
+## Installing it
+
+A `manifest.webmanifest` and a service worker (`public/sw.js`) make "Add to
+Home Screen" produce a real app icon with its own offline shell, instead of a
+bookmark that still needs a live connection.
+
+The worker's caching is deliberately simple: network-first, cache-fallback,
+for everything same-origin except `/api/*`. There is no list of hashed build
+filenames to keep in sync with each deploy — the cache is just "the last
+thing that loaded successfully," which self-heals on the next successful
+request rather than needing a version bump in the worker every time the app
+changes.
+
+Updates are never silent. A new worker installing dispatches a DOM event
+(`src/pwa.ts`) rather than taking over; the app answers with the same toast
+every other acknowledgment uses — "A new version is ready," with a Reload
+action — and only that action lets the new worker actually take control. A
+person using the app is never swapped onto a new version out from under them
+mid-session.
 
 ## Deploying
 

@@ -35,6 +35,23 @@
      does not otherwise show. */
   --toast-accent: #6f9bff;
 
+  /*
+   * A category's colour, hashed from its name (see categoryColor.ts) so the
+   * same category is always the same colour everywhere with nothing to
+   * store or sync. Used only as a fill against a neutral track, never as
+   * text — that is what lets one set of seven work in both themes rather
+   * than needing the light/dark tuning body text requires. --cat-0 is the
+   * neutral slot, for a blank ("Uncategorised") category.
+   */
+  --cat-0: var(--ink-faint);
+  --cat-1: #3b82f6;
+  --cat-2: #14b8a6;
+  --cat-3: #a855f7;
+  --cat-4: #f97316;
+  --cat-5: #ec4899;
+  --cat-6: #22c55e;
+  --cat-7: #eab308;
+
   --radius: 14px;
   --radius-small: 9px;
   --shadow: 0 1px 2px rgba(16, 20, 30, 0.06), 0 8px 24px rgba(16, 20, 30, 0.06);
@@ -730,6 +747,49 @@ svg {
   font-size: 11.5px;
 }
 
+/*
+ * Category colour, applied through one shared custom property rather than
+ * as eight separate background/dot rules — a chip's dot and a bar's fill
+ * both just read --cat-color, whichever of --cat-0..7 the category hashed
+ * to (see categoryColorIndex). The colour is never used as text, only as a
+ * fill or a dot, which is what lets one palette work in both themes.
+ */
+.cat-0 {
+  --cat-color: var(--cat-0);
+}
+.cat-1 {
+  --cat-color: var(--cat-1);
+}
+.cat-2 {
+  --cat-color: var(--cat-2);
+}
+.cat-3 {
+  --cat-color: var(--cat-3);
+}
+.cat-4 {
+  --cat-color: var(--cat-4);
+}
+.cat-5 {
+  --cat-color: var(--cat-5);
+}
+.cat-6 {
+  --cat-color: var(--cat-6);
+}
+.cat-7 {
+  --cat-color: var(--cat-7);
+}
+
+.chip[class*="cat-"]::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: var(--cat-color);
+  vertical-align: middle;
+}
+
 .chip.subtle {
   background: transparent;
   border: 1px solid var(--line);
@@ -810,12 +870,27 @@ svg {
 }
 
 .bar {
+  padding: 0;
+}
+
+.bar-button {
   display: grid;
   grid-template-columns: minmax(70px, 1fr) 2fr auto;
   gap: 10px;
   align-items: center;
+  width: 100%;
   padding: 5px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
   font-size: 13.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bar-button:disabled {
+  cursor: default;
 }
 
 .bar-label {
@@ -836,11 +911,20 @@ svg {
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: var(--accent);
+  background: var(--cat-color, var(--accent));
+}
+
+.bar-track span.over {
+  background: var(--alert);
 }
 
 .bar-value {
   font-variant-numeric: tabular-nums;
+}
+
+.bar-value.alert {
+  color: var(--alert);
+  font-weight: 600;
 }
 
 /* ------------------------------------------------------------------ trend -- */
@@ -927,6 +1011,198 @@ svg {
 .trend-col.current .trend-label {
   color: var(--ink);
   font-weight: 600;
+}
+
+.trend-header {
+  display: flex;
+  justify-content: flex-end;
+  margin: 22px 2px 8px;
+}
+
+/* -------------------------------------------------------------------- year -- */
+
+.year-review {
+  display: grid;
+  gap: 18px;
+}
+
+.year-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.year-stat {
+  padding: 12px 14px;
+  background: var(--surface-sunken);
+  border-radius: var(--radius-small);
+}
+
+.year-stat .stat-label {
+  display: block;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 550;
+}
+
+.year-stat .stat-value {
+  display: block;
+  margin-top: 2px;
+  font-size: 17px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.year-stat.alert .stat-value {
+  color: var(--alert);
+}
+
+.year-stat.good .stat-value {
+  color: var(--good);
+}
+
+.year-months .trend-col {
+  cursor: default;
+}
+
+.year-months .trend-amount {
+  height: 0;
+}
+
+/* -------------------------------------------------------------------- lock -- */
+
+.lock-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--page);
+}
+
+.lock-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: min(320px, 100%);
+  text-align: center;
+}
+
+.lock-card .brand-mark {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+}
+
+.lock-card h1 {
+  font-size: 19px;
+  font-weight: 600;
+}
+
+.lock-card form {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  width: 100%;
+}
+
+.lock-input {
+  padding: 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-small);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 22px;
+  letter-spacing: 0.3em;
+  text-align: center;
+}
+
+.lock-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.lock-submit {
+  width: 100%;
+}
+
+.lock-forgot {
+  margin-top: 4px;
+  color: var(--ink-faint);
+  font-size: 13px;
+}
+
+.lock-reset-confirm {
+  width: 100%;
+  margin-top: 4px;
+  padding: 12px;
+  background: var(--alert-soft);
+  border-radius: var(--radius-small);
+}
+
+.lock-reset-confirm .field-hint {
+  margin: 0 0 10px;
+  text-align: left;
+}
+
+/* A wrong PIN shakes rather than just showing red text underneath — the
+   rejection is felt at the moment of the mistake, not read a beat later. */
+.lock-card.shake {
+  animation: lock-shake 420ms ease-in-out;
+}
+
+@keyframes lock-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    transform: translateX(-8px);
+  }
+  40%,
+  80% {
+    transform: translateX(8px);
+  }
+}
+
+/* ------------------------------------------------------------------ search -- */
+
+.search {
+  display: grid;
+  gap: 14px;
+}
+
+.search-input {
+  padding: 12px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-small);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* ------------------------------------------------------------- instalments -- */
+
+.instalment-progress {
+  margin: 0 0 4px;
+  padding: 9px 12px;
+  background: var(--accent-soft);
+  border-radius: var(--radius-small);
+  color: var(--ink);
+  font-weight: 550;
 }
 
 /* --------------------------------------------------------------- calendar -- */
@@ -2035,6 +2311,7 @@ svg {
   .bar-track span,
   .trend-fill,
   .toast,
+  .lock-card.shake,
   .form-error {
     animation: none;
   }

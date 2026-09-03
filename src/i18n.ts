@@ -65,6 +65,7 @@ const en = {
   "action.undo": "Undo",
   "action.close": "Close",
   "action.back": "Back",
+  "action.duplicate": "Duplicate",
 
   "form.newExpense": "New bill",
   "form.newIncome": "New income",
@@ -91,6 +92,7 @@ const en = {
   "form.errorDate": "Pick a valid date.",
   "form.deleteConfirm": "Delete this and everything recorded against it?",
   "form.splitHint": "{count} × {amount}",
+  "form.instalmentProgress": "{paid} of {total} paid · {remaining} left on this plan",
 
   "repeat.none": "One time",
   "repeat.weekly": "Every week",
@@ -112,11 +114,40 @@ const en = {
   "categories.title": "Where it goes",
   "categories.uncategorised": "Uncategorised",
 
+  "category.manage": "Manage category",
+  "category.name": "Name",
+  "category.mergeHint": "This will combine it with the existing \"{name}\" category.",
+  "category.budget": "Monthly budget",
+  "category.noBudget": "No limit",
+  "category.budgetHint": "Leave blank for no limit.",
+  "category.spentOfBudget": "{spent} of {limit}",
+
   "elsewhere.title": "Not this month",
 
   "trend.title": "Recent months",
 
+  "year.link": "This year →",
+  "year.title": "{year} in review",
+  "year.paid": "Paid",
+  "year.received": "Received",
+  "year.topCategory": "Most of it went to {category}: {amount}.",
+
+  "search.title": "Search",
+  "search.placeholder": "Find a bill or income…",
+  "search.empty": "Nothing matches that.",
+
+  "lock.title": "Enter your PIN",
+  "lock.placeholder": "PIN",
+  "lock.unlock": "Unlock",
+  "lock.wrong": "Wrong PIN.",
+  "lock.forgot": "Forgot your PIN?",
+  "lock.resetWarning":
+    "There is no way to recover a forgotten PIN. Resetting erases every entry and payment stored on this device — if sync is on, the data stays in the cloud and can be pulled back down with the same personal code.",
+  "lock.resetConfirmButton": "Erase this device and remove the PIN",
+
   "toast.deleted": "{description} deleted",
+  "update.available": "A new version is ready",
+  "update.reload": "Reload",
 
   "settings.appearance": "Appearance",
   "settings.language": "Language",
@@ -144,12 +175,26 @@ const en = {
   "settings.data": "Your data",
   "settings.dataHint": "{entries} entries and {payments} payments on this device.",
   "settings.export": "Download a backup",
+  "settings.exportCsv": "Export CSV",
   "settings.import": "Restore from a backup",
   "settings.importDone": "Restored {entries} entries and {payments} payments.",
   "settings.importFailed": "That file could not be read.",
   "settings.erase": "Erase everything on this device",
   "settings.eraseConfirm":
     "Erase every entry and payment stored on this device? If sync is on, the data stays in the cloud.",
+
+  "settings.lock": "App lock",
+  "settings.lockHelp":
+    "A PIN required to open the app on this device. It never leaves the device, and there is no way to recover it if forgotten — only to reset.",
+  "settings.lockPin": "PIN",
+  "settings.lockNewPin": "New PIN",
+  "settings.lockPinPlaceholder": "at least 4 digits",
+  "settings.lockConfirmPin": "Confirm PIN",
+  "settings.lockSet": "Set PIN",
+  "settings.lockChange": "Change PIN",
+  "settings.lockRemove": "Remove PIN",
+  "settings.lockTooShort": "Use at least 4 digits.",
+  "settings.lockMismatch": "The two PINs don't match.",
 
   "settings.about": "About",
   "settings.aboutText":
@@ -217,6 +262,7 @@ const pt: Record<TranslationKey, string> = {
   "action.undo": "Desfazer",
   "action.close": "Fechar",
   "action.back": "Voltar",
+  "action.duplicate": "Duplicar",
 
   "form.newExpense": "Nova conta",
   "form.newIncome": "Novo recebimento",
@@ -243,6 +289,7 @@ const pt: Record<TranslationKey, string> = {
   "form.errorDate": "Escolha uma data válida.",
   "form.deleteConfirm": "Excluir este lançamento e tudo que foi registrado nele?",
   "form.splitHint": "{count} × {amount}",
+  "form.instalmentProgress": "{paid} de {total} pagas · faltam {remaining} neste plano",
 
   "repeat.none": "Única",
   "repeat.weekly": "Toda semana",
@@ -264,11 +311,40 @@ const pt: Record<TranslationKey, string> = {
   "categories.title": "Para onde vai",
   "categories.uncategorised": "Sem categoria",
 
+  "category.manage": "Editar categoria",
+  "category.name": "Nome",
+  "category.mergeHint": "Isso vai juntar com a categoria \"{name}\" que já existe.",
+  "category.budget": "Orçamento mensal",
+  "category.noBudget": "Sem limite",
+  "category.budgetHint": "Deixe em branco para não ter limite.",
+  "category.spentOfBudget": "{spent} de {limit}",
+
   "elsewhere.title": "Fora deste mês",
 
   "trend.title": "Últimos meses",
 
+  "year.link": "Este ano →",
+  "year.title": "Resumo de {year}",
+  "year.paid": "Pago",
+  "year.received": "Recebido",
+  "year.topCategory": "A maior parte foi para {category}: {amount}.",
+
+  "search.title": "Buscar",
+  "search.placeholder": "Encontrar uma conta ou recebimento…",
+  "search.empty": "Nada encontrado.",
+
+  "lock.title": "Digite seu PIN",
+  "lock.placeholder": "PIN",
+  "lock.unlock": "Desbloquear",
+  "lock.wrong": "PIN incorreto.",
+  "lock.forgot": "Esqueceu o PIN?",
+  "lock.resetWarning":
+    "Não há como recuperar um PIN esquecido. Reiniciar apaga todos os lançamentos e pagamentos guardados neste aparelho — se a sincronização estiver ligada, os dados continuam na nuvem e podem ser recuperados com o mesmo código pessoal.",
+  "lock.resetConfirmButton": "Apagar este aparelho e remover o PIN",
+
   "toast.deleted": "{description} excluído",
+  "update.available": "Uma nova versão está pronta",
+  "update.reload": "Recarregar",
 
   "settings.appearance": "Aparência",
   "settings.language": "Idioma",
@@ -296,12 +372,26 @@ const pt: Record<TranslationKey, string> = {
   "settings.data": "Seus dados",
   "settings.dataHint": "{entries} lançamentos e {payments} pagamentos neste aparelho.",
   "settings.export": "Baixar um backup",
+  "settings.exportCsv": "Exportar CSV",
   "settings.import": "Restaurar de um backup",
   "settings.importDone": "Restaurados {entries} lançamentos e {payments} pagamentos.",
   "settings.importFailed": "Não foi possível ler esse arquivo.",
   "settings.erase": "Apagar tudo deste aparelho",
   "settings.eraseConfirm":
     "Apagar todos os lançamentos e pagamentos guardados neste aparelho? Se a sincronização estiver ligada, os dados continuam na nuvem.",
+
+  "settings.lock": "Bloqueio do app",
+  "settings.lockHelp":
+    "Um PIN necessário para abrir o app neste aparelho. Ele nunca sai do aparelho, e não há como recuperá-lo se for esquecido — só reiniciar.",
+  "settings.lockPin": "PIN",
+  "settings.lockNewPin": "Novo PIN",
+  "settings.lockPinPlaceholder": "pelo menos 4 dígitos",
+  "settings.lockConfirmPin": "Confirmar PIN",
+  "settings.lockSet": "Definir PIN",
+  "settings.lockChange": "Trocar PIN",
+  "settings.lockRemove": "Remover PIN",
+  "settings.lockTooShort": "Use pelo menos 4 dígitos.",
+  "settings.lockMismatch": "Os dois PINs não são iguais.",
 
   "settings.about": "Sobre",
   "settings.aboutText":

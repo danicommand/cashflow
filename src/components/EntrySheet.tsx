@@ -3,8 +3,9 @@ import { useState } from "react";
 import type { Translator } from "../i18n.ts";
 import type { CurrencyCode, EntryKind, Language, Repeat } from "../types.ts";
 import { isIsoDate } from "../services/dates.ts";
-import { centsToInput, currencySymbol, parseMoney } from "../services/money.ts";
+import { centsToInput, currencySymbol, formatMoney, parseMoney } from "../services/money.ts";
 import type { EntryDraft } from "../services/ledger.ts";
+import type { InstalmentProgress } from "../services/instalments.ts";
 import { Sheet } from "./Sheet.tsx";
 
 interface EntrySheetProps {
@@ -14,8 +15,12 @@ interface EntrySheetProps {
   currency: CurrencyCode;
   language: Language;
   t: Translator;
+  /** How far along this entry's instalment plan is — `null` when it is not
+   * one (a one-time bill or an open-ended repeat). */
+  instalmentProgress?: InstalmentProgress | null;
   onSave: (draft: EntryDraft) => void;
   onDelete?: () => void;
+  onDuplicate?: () => void;
   onClose: () => void;
 }
 
@@ -40,8 +45,10 @@ export function EntrySheet({
   currency,
   language,
   t,
+  instalmentProgress,
   onSave,
   onDelete,
+  onDuplicate,
   onClose,
 }: EntrySheetProps) {
   const [kind, setKind] = useState<EntryKind>(draft.kind);
@@ -102,9 +109,16 @@ export function EntrySheet({
       footer={
         <>
           {onDelete ? (
-            <button type="button" className="button danger-text" onClick={onDelete}>
-              {t("action.delete")}
-            </button>
+            <div className="sheet-foot-actions">
+              <button type="button" className="button danger-text" onClick={onDelete}>
+                {t("action.delete")}
+              </button>
+              {onDuplicate ? (
+                <button type="button" className="button" onClick={onDuplicate}>
+                  {t("action.duplicate")}
+                </button>
+              ) : null}
+            </div>
           ) : (
             <span />
           )}
@@ -126,6 +140,16 @@ export function EntrySheet({
           submit();
         }}
       >
+        {instalmentProgress ? (
+          <p className="field-hint instalment-progress">
+            {t("form.instalmentProgress", {
+              paid: instalmentProgress.paidCount,
+              total: instalmentProgress.totalCount,
+              remaining: formatMoney(instalmentProgress.remainingAmount, currency, language),
+            })}
+          </p>
+        ) : null}
+
         <div className="segmented" role="group" aria-label={t("form.kind")}>
           <button
             type="button"

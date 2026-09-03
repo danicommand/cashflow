@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
 
 import type { Translator } from "../i18n.ts";
-import type { CurrencyCode, Language, Occurrence } from "../types.ts";
+import type { Budget, CurrencyCode, Language, Occurrence } from "../types.ts";
+import { monthBudgets } from "../services/budgets.ts";
+import { categoryColorIndex } from "../services/categoryColor.ts";
 import { formatMoney } from "../services/money.ts";
 import { paidProgress, summarise, totalsByCategory } from "../services/summary.ts";
 import type { MonthSpend } from "../services/trend.ts";
@@ -31,10 +33,13 @@ interface MonthViewProps {
   elsewhere: Occurrence[];
   /** What was actually paid in each of the last several months, oldest first. */
   history: MonthSpend[];
+  budgets: Budget[];
   onToggle: (occurrence: Occurrence) => void;
   onOpen: (occurrence: Occurrence) => void;
   onJumpElsewhere: (occurrence: Occurrence) => void;
   onSelectMonth: (month: string) => void;
+  onManageCategory: (category: string) => void;
+  onOpenYearReview: () => void;
 }
 
 /**
@@ -57,15 +62,22 @@ export function MonthView({
   globalOverdueTotal,
   elsewhere,
   history,
+  budgets,
   onToggle,
   onOpen,
   onJumpElsewhere,
   onSelectMonth,
+  onManageCategory,
+  onOpenYearReview,
 }: MonthViewProps) {
   const [showSettled, setShowSettled] = useState(false);
 
   const summary = useMemo(() => summarise(occurrences, today), [occurrences, today]);
   const categories = useMemo(() => totalsByCategory(occurrences), [occurrences]);
+  const budgetsByCategory = useMemo(() => {
+    const map = new Map(monthBudgets(occurrences, budgets).map((b) => [b.category, b]));
+    return map;
+  }, [occurrences, budgets]);
   const progress = paidProgress(summary);
 
   const expenses = occurrences.filter((item) => item.entry.kind === "expense");
@@ -100,6 +112,11 @@ export function MonthView({
           t={t}
           onJump={onJumpElsewhere}
         />
+        <section className="trend-header">
+          <button type="button" className="link-button" onClick={onOpenYearReview}>
+            {t("year.link")}
+          </button>
+        </section>
         <TrendChart
           history={history}
           currentMonth={month}
@@ -280,20 +297,48 @@ export function MonthView({
             <h2>{t("categories.title")}</h2>
           </header>
           <ul className="bars">
-            {categories.map((bucket) => (
-              <li key={bucket.category || "none"} className="bar">
-                <span className="bar-label">
-                  {bucket.category || t("categories.uncategorised")}
-                </span>
-                <span className="bar-track">
-                  <span style={{ width: `${Math.round(bucket.share * 100)}%` }} />
-                </span>
-                <span className="bar-value">{money(bucket.total)}</span>
-              </li>
-            ))}
+            {categories.map((bucket) => {
+              const cap = bucket.category ? budgetsByCategory.get(bucket.category) : undefined;
+              return (
+                <li key={bucket.category || "none"} className="bar">
+                  <button
+                    type="button"
+                    className="bar-button"
+                    disabled={!bucket.category}
+                    onClick={() => onManageCategory(bucket.category)}
+                  >
+                    <span className="bar-label">
+                      {bucket.category || t("categories.uncategorised")}
+                    </span>
+                    <span className="bar-track">
+                      <span
+                        className={`cat-${categoryColorIndex(bucket.category)}${cap?.overBudget ? " over" : ""}`}
+                        style={{
+                          width: `${Math.round((cap ? Math.min(cap.share, 1) : bucket.share) * 100)}%`,
+                        }}
+                      />
+                    </span>
+                    <span className={`bar-value${cap?.overBudget ? " alert" : ""}`}>
+                      {cap
+                        ? t("category.spentOfBudget", {
+                            spent: money(bucket.total),
+                            limit: money(cap.limit),
+                          })
+                        : money(bucket.total)}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </section>
       ) : null}
+
+      <section className="trend-header">
+        <button type="button" className="link-button" onClick={onOpenYearReview}>
+          {t("year.link")}
+        </button>
+      </section>
 
       <TrendChart
         history={history}

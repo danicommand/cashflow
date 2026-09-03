@@ -27,7 +27,7 @@ function draft(overrides: Partial<EntryDraft> = {}): EntryDraft {
   };
 }
 
-const EMPTY: Ledger = { entries: [], payments: [] };
+const EMPTY: Ledger = { entries: [], payments: [], budgets: [] };
 
 describe("addEntry", () => {
   it("stores the entry with matching timestamps", () => {
@@ -45,7 +45,7 @@ describe("addEntry", () => {
   });
 
   it("does not mutate the ledger it was given", () => {
-    const before: Ledger = { entries: [], payments: [] };
+    const before: Ledger = { entries: [], payments: [], budgets: [] };
     addEntry(before, draft(), NOW);
     expect(before.entries).toHaveLength(0);
   });

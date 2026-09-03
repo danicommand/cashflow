@@ -100,6 +100,7 @@ export function updateEntry(
 export function deleteEntry(ledger: Ledger, entryId: string, now = new Date()): Ledger {
   const stamp = now.toISOString();
   return {
+    ...ledger,
     entries: ledger.entries.map((entry) =>
       entry.id === entryId ? { ...entry, deletedAt: stamp, updatedAt: stamp } : entry,
     ),
@@ -182,6 +183,7 @@ export function restoreEntry(
 ): Ledger {
   const stamp = now.toISOString();
   return {
+    ...ledger,
     entries: ledger.entries.map((entry) =>
       entry.id === entryId && entry.deletedAt === deletedAtStamp
         ? { ...entry, deletedAt: null, updatedAt: stamp }
@@ -204,4 +206,91 @@ export function knownCategories(ledger: Ledger): string[] {
     if (category) seen.add(category);
   }
   return [...seen].toSorted((a, b) => a.localeCompare(b));
+}
+
+/**
+ * Create or update the cap for one category. A category has at most one live
+ * budget, so setting it again edits the existing row in place rather than
+ * piling up a new one — otherwise two devices each setting "Food: 500" while
+ * offline would merge into two competing budgets for the same category.
+ */
+export function setBudget(
+  ledger: Ledger,
+  category: string,
+  limit: number,
+  now = new Date(),
+): Ledger {
+  const stamp = now.toISOString();
+  const trimmed = category.trim();
+  const existing = ledger.budgets.find((budget) => !budget.deletedAt && budget.category === trimmed);
+
+  if (existing) {
+    return {
+      ...ledger,
+      budgets: ledger.budgets.map((budget) =>
+        budget.id === existing.id ? { ...budget, limit, updatedAt: stamp } : budget,
+      ),
+    };
+  }
+
+  return {
+    ...ledger,
+    budgets: [
+      ...ledger.budgets,
+      { id: newId(), category: trimmed, limit, updatedAt: stamp, deletedAt: null },
+    ],
+  };
+}
+
+/** Remove a category's cap — the category itself and its entries are untouched. */
+export function removeBudget(ledger: Ledger, budgetId: string, now = new Date()): Ledger {
+  const stamp = now.toISOString();
+  return {
+    ...ledger,
+    budgets: ledger.budgets.map((budget) =>
+      budget.id === budgetId ? { ...budget, deletedAt: stamp, updatedAt: stamp } : budget,
+    ),
+  };
+}
+
+/**
+ * Rename a category everywhere it is used — every live entry, and its
+ * budget if it has one. Renaming to a name that already has a budget merges
+ * into that budget (keeping the destination's cap) rather than leaving two
+ * live budgets for what is now one category name.
+ */
+export function renameCategory(
+  ledger: Ledger,
+  fromName: string,
+  toName: string,
+  now = new Date(),
+): Ledger {
+  const stamp = now.toISOString();
+  const from = fromName.trim();
+  const to = toName.trim();
+  if (!from || !to || from === to) return ledger;
+
+  const entries = ledger.entries.map((entry) =>
+    !entry.deletedAt && entry.category === from
+      ? { ...entry, category: to, updatedAt: stamp }
+      : entry,
+  );
+
+  const sourceBudget = ledger.budgets.find(
+    (budget) => !budget.deletedAt && budget.category === from,
+  );
+  const destinationHasBudget = ledger.budgets.some(
+    (budget) => !budget.deletedAt && budget.category === to,
+  );
+
+  const budgets = ledger.budgets.map((budget) => {
+    if (budget.id !== sourceBudget?.id) return budget;
+    // The destination category already has its own cap — this one becomes a
+    // duplicate the moment the rename lands, so it is retired rather than
+    // renamed on top of it.
+    if (destinationHasBudget) return { ...budget, deletedAt: stamp, updatedAt: stamp };
+    return { ...budget, category: to, updatedAt: stamp };
+  });
+
+  return { ...ledger, entries, budgets };
 }

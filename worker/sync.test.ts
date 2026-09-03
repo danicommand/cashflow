@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import type { Entry, Ledger, Payment } from "../src/types.ts";
+import type { Budget, Entry, Ledger, Payment } from "../src/types.ts";
 import { MAX_SPACE_BYTES, evictStaleSpaces, handleSync, shouldEvict } from "./sync.ts";
 import type { SyncEnv } from "./sync.ts";
 
@@ -88,6 +88,17 @@ function payment(overrides: Partial<Payment> = {}): Payment {
     paidOn: "2026-01-05",
     amount: 120_000,
     updatedAt: "2026-01-05T00:00:00.000Z",
+    deletedAt: null,
+    ...overrides,
+  };
+}
+
+function budget(overrides: Partial<Budget> = {}): Budget {
+  return {
+    id: "b1",
+    category: "Home",
+    limit: 150_000,
+    updatedAt: "2026-01-01T00:00:00.000Z",
     deletedAt: null,
     ...overrides,
   };
@@ -258,6 +269,24 @@ describe("handleSync", () => {
     const ledger = await ledgerFrom(response);
     assert.equal(ledger.entries.length, 1);
     assert.equal(ledger.payments.length, 0);
+  });
+
+  it("merges budgets the same way it merges entries and payments", async () => {
+    const db = fakeDatabase();
+    await handleSync(
+      post({ space: SPACE, ledger: { entries: [], payments: [], budgets: [budget()] } }),
+      { DB: db },
+      NOW,
+    );
+    const response = await handleSync(
+      post({ space: SPACE, ledger: { entries: [], payments: [], budgets: [] } }),
+      { DB: db },
+      NOW,
+    );
+
+    const ledger = await ledgerFrom(response);
+    assert.equal(ledger.budgets.length, 1);
+    assert.equal(ledger.budgets[0].limit, 150_000);
   });
 
   it("rebuilds from the client when the stored row is unreadable", async () => {

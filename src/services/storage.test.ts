@@ -29,7 +29,7 @@ function entry(overrides: Partial<Entry> = {}): Entry {
   };
 }
 
-const LEDGER: Ledger = { entries: [entry()], payments: [] };
+const LEDGER: Ledger = { entries: [entry()], payments: [], budgets: [] };
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -42,12 +42,12 @@ describe("ledger persistence", () => {
   });
 
   it("starts empty", () => {
-    expect(loadLedger()).toEqual({ entries: [], payments: [] });
+    expect(loadLedger()).toEqual({ entries: [], payments: [], budgets: [] });
   });
 
   it("survives a corrupted store rather than throwing", () => {
     window.localStorage.setItem("cashflow.ledger.v1", "{ not json");
-    expect(loadLedger()).toEqual({ entries: [], payments: [] });
+    expect(loadLedger()).toEqual({ entries: [], payments: [], budgets: [] });
   });
 
   it("drops rows that no longer match the shape", () => {
@@ -66,6 +66,7 @@ describe("ledger persistence", () => {
         entry({ id: `e${index}`, note: "x".repeat(120) }),
       ),
       payments: [],
+      budgets: [],
     };
     expect(saveLedger(huge)).toBe("too-large");
   });
@@ -125,6 +126,7 @@ describe("backups", () => {
     expect(readBackup(JSON.stringify({ entries: [], payments: [] }))).toEqual({
       entries: [],
       payments: [],
+      budgets: [],
     });
   });
 });

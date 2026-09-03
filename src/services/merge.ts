@@ -11,7 +11,7 @@
  * resurrect it.
  */
 
-import type { Entry, Ledger, Payment, SyncedRecord } from "../types.ts";
+import type { Budget, Entry, Ledger, Payment, SyncedRecord } from "../types.ts";
 
 /** How long a tombstone is kept before it is dropped for good. */
 export const TOMBSTONE_DAYS = 90;
@@ -39,6 +39,7 @@ export function mergeLedgers(local: Ledger, remote: Ledger): Ledger {
   return {
     entries: mergeRecords<Entry>(local.entries, remote.entries),
     payments: mergeRecords<Payment>(local.payments, remote.payments),
+    budgets: mergeRecords<Budget>(local.budgets, remote.budgets),
   };
 }
 
@@ -60,11 +61,18 @@ export function pruneLedger(ledger: Ledger, now: Date = new Date()): Ledger {
     return !payment.deletedAt || payment.deletedAt > cutoff;
   });
 
-  return { entries, payments };
+  // A budget belongs to a category name, not to any one entry, so it has no
+  // equivalent of an "orphaned" payment — it is only ever pruned by its own
+  // tombstone age.
+  const budgets = ledger.budgets.filter(
+    (budget) => !budget.deletedAt || budget.deletedAt > cutoff,
+  );
+
+  return { entries, payments, budgets };
 }
 
 export function emptyLedger(): Ledger {
-  return { entries: [], payments: [] };
+  return { entries: [], payments: [], budgets: [] };
 }
 
 /** Records a person would actually see — tombstones filtered out. */
@@ -72,6 +80,7 @@ export function liveLedger(ledger: Ledger): Ledger {
   return {
     entries: ledger.entries.filter((entry) => !entry.deletedAt),
     payments: ledger.payments.filter((payment) => !payment.deletedAt),
+    budgets: ledger.budgets.filter((budget) => !budget.deletedAt),
   };
 }
 
@@ -88,6 +97,7 @@ export function sanitiseLedger(value: unknown): Ledger {
   if (!isRecordShape(value)) return emptyLedger();
   const rawEntries = Array.isArray(value.entries) ? value.entries : [];
   const rawPayments = Array.isArray(value.payments) ? value.payments : [];
+  const rawBudgets = Array.isArray(value.budgets) ? value.budgets : [];
 
   const entries: Entry[] = [];
   for (const candidate of rawEntries) {
@@ -101,7 +111,13 @@ export function sanitiseLedger(value: unknown): Ledger {
     if (payment) payments.push(payment);
   }
 
-  return { entries, payments };
+  const budgets: Budget[] = [];
+  for (const candidate of rawBudgets) {
+    const budget = sanitiseBudget(candidate);
+    if (budget) budgets.push(budget);
+  }
+
+  return { entries, payments, budgets };
 }
 
 const MAX_TEXT = 200;
@@ -159,6 +175,19 @@ function sanitisePayment(value: unknown): Payment | null {
     occurrence: text(value.occurrence, "1970-01-01").slice(0, 10),
     paidOn: text(value.paidOn, "1970-01-01").slice(0, 10),
     amount: cents(value.amount),
+    updatedAt: timestamp(value.updatedAt),
+    deletedAt: typeof value.deletedAt === "string" ? value.deletedAt.slice(0, 40) : null,
+  };
+}
+
+function sanitiseBudget(value: unknown): Budget | null {
+  if (!isRecordShape(value)) return null;
+  if (typeof value.id !== "string" || !value.id) return null;
+
+  return {
+    id: value.id.slice(0, 64),
+    category: text(value.category),
+    limit: Math.max(0, cents(value.limit)),
     updatedAt: timestamp(value.updatedAt),
     deletedAt: typeof value.deletedAt === "string" ? value.deletedAt.slice(0, 40) : null,
   };
