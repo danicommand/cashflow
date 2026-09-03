@@ -8,7 +8,7 @@
  * already knowable from its twelve months.
  */
 
-import type { Entry, Payment } from "../types.ts";
+import type { Entry, Payment, Skip } from "../types.ts";
 import { occurrencesInMonth } from "./occurrences.ts";
 import { summarise, totalsByCategory } from "./summary.ts";
 
@@ -25,6 +25,7 @@ export interface YearReview {
 export function yearSummary(
   entries: Entry[],
   payments: Payment[],
+  skips: Skip[],
   year: number,
   today: string,
 ): YearReview {
@@ -35,7 +36,7 @@ export function yearSummary(
 
   for (let monthNumber = 1; monthNumber <= 12; monthNumber += 1) {
     const month = `${year}-${String(monthNumber).padStart(2, "0")}`;
-    const occurrences = occurrencesInMonth(entries, payments, month);
+    const occurrences = occurrencesInMonth(entries, payments, skips, month);
     const monthSummary = summarise(occurrences, today);
 
     paidTotal += monthSummary.paidTotal;

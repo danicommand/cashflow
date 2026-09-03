@@ -52,6 +52,7 @@ const en = {
   "status.paidOn": "Paid {date}",
   "status.receivedOn": "Received {date}",
   "status.instalment": "{current} of {total}",
+  "status.skipped": "Skipped",
 
   "action.add": "Add",
   "action.addExpense": "Add a bill",
@@ -66,6 +67,8 @@ const en = {
   "action.close": "Close",
   "action.back": "Back",
   "action.duplicate": "Duplicate",
+  "action.skip": "Skip this one",
+  "action.undoSkip": "Undo skip",
 
   "form.newExpense": "New bill",
   "form.newIncome": "New income",
@@ -105,6 +108,7 @@ const en = {
   "pay.amountIncome": "Amount received",
   "pay.date": "On",
   "pay.differs": "Different from the {amount} planned.",
+  "pay.skipHint": "Not happening this time — no money moves, and it won't count toward this month's totals.",
 
   "calendar.noItems": "Nothing on this day.",
   "calendar.legendDue": "Due",
@@ -249,6 +253,7 @@ const pt: Record<TranslationKey, string> = {
   "status.paidOn": "Pago em {date}",
   "status.receivedOn": "Recebido em {date}",
   "status.instalment": "{current} de {total}",
+  "status.skipped": "Pulado",
 
   "action.add": "Lançar",
   "action.addExpense": "Lançar conta",
@@ -263,6 +268,8 @@ const pt: Record<TranslationKey, string> = {
   "action.close": "Fechar",
   "action.back": "Voltar",
   "action.duplicate": "Duplicar",
+  "action.skip": "Pular desta vez",
+  "action.undoSkip": "Desfazer pular",
 
   "form.newExpense": "Nova conta",
   "form.newIncome": "Novo recebimento",
@@ -302,6 +309,7 @@ const pt: Record<TranslationKey, string> = {
   "pay.amountIncome": "Valor recebido",
   "pay.date": "Em",
   "pay.differs": "Diferente dos {amount} previstos.",
+  "pay.skipHint": "Não vai acontecer desta vez — nenhum valor é movimentado, e não entra nos totais deste mês.",
 
   "calendar.noItems": "Nada neste dia.",
   "calendar.legendDue": "A pagar",

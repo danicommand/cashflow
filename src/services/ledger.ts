@@ -7,7 +7,7 @@
  * unable to tell which version is newer.
  */
 
-import type { Entry, EntryKind, Ledger, Payment, Repeat } from "../types.ts";
+import type { Entry, EntryKind, Ledger, Payment, Repeat, Skip } from "../types.ts";
 import { occurrenceKey } from "./occurrences.ts";
 
 export function newId(): string {
@@ -109,6 +109,11 @@ export function deleteEntry(ledger: Ledger, entryId: string, now = new Date()): 
         ? { ...payment, deletedAt: stamp, updatedAt: stamp }
         : payment,
     ),
+    skips: ledger.skips.map((skip) =>
+      skip.entryId === entryId && !skip.deletedAt
+        ? { ...skip, deletedAt: stamp, updatedAt: stamp }
+        : skip,
+    ),
   };
 }
 
@@ -146,6 +151,11 @@ export function settleOccurrence(
     payments: existing
       ? ledger.payments.map((current) => (current.id === id ? payment : current))
       : [...ledger.payments, payment],
+    // An occurrence being paid can't still be skipped — clear any skip on
+    // the same identity so the two states can never both be true at once.
+    skips: ledger.skips.map((skip) =>
+      skip.id === id && !skip.deletedAt ? { ...skip, deletedAt: stamp, updatedAt: stamp } : skip,
+    ),
   };
 }
 
@@ -162,6 +172,59 @@ export function unsettleOccurrence(
     ...ledger,
     payments: ledger.payments.map((payment) =>
       payment.id === id ? { ...payment, deletedAt: stamp, updatedAt: stamp } : payment,
+    ),
+  };
+}
+
+/**
+ * Mark one occurrence as deliberately not happening — a subscription paused
+ * for a month, a bill waived — without touching the recurring rule behind
+ * it, so every other month is unaffected.
+ *
+ * Shares its id with the equivalent payment (`occurrenceKey`), the same
+ * trick `settleOccurrence` uses, and for the same reason: two devices
+ * skipping the same occurrence while offline land on one record, not two.
+ */
+export function skipOccurrence(
+  ledger: Ledger,
+  entryId: string,
+  occurrence: string,
+  now = new Date(),
+): Ledger {
+  const stamp = now.toISOString();
+  const id = occurrenceKey(entryId, occurrence);
+  const existing = ledger.skips.find((skip) => skip.id === id);
+
+  const skip: Skip = { id, entryId, occurrence, updatedAt: stamp, deletedAt: null };
+
+  return {
+    ...ledger,
+    skips: existing
+      ? ledger.skips.map((current) => (current.id === id ? skip : current))
+      : [...ledger.skips, skip],
+    // Mirrors settleOccurrence: an occurrence being skipped can't still be
+    // paid, so any payment on the same identity is cleared.
+    payments: ledger.payments.map((payment) =>
+      payment.id === id && !payment.deletedAt
+        ? { ...payment, deletedAt: stamp, updatedAt: stamp }
+        : payment,
+    ),
+  };
+}
+
+/** Undo a skip, putting the occurrence back into what is still owed. */
+export function unskipOccurrence(
+  ledger: Ledger,
+  entryId: string,
+  occurrence: string,
+  now = new Date(),
+): Ledger {
+  const stamp = now.toISOString();
+  const id = occurrenceKey(entryId, occurrence);
+  return {
+    ...ledger,
+    skips: ledger.skips.map((skip) =>
+      skip.id === id ? { ...skip, deletedAt: stamp, updatedAt: stamp } : skip,
     ),
   };
 }
@@ -193,6 +256,11 @@ export function restoreEntry(
       payment.entryId === entryId && payment.deletedAt === deletedAtStamp
         ? { ...payment, deletedAt: null, updatedAt: stamp }
         : payment,
+    ),
+    skips: ledger.skips.map((skip) =>
+      skip.entryId === entryId && skip.deletedAt === deletedAtStamp
+        ? { ...skip, deletedAt: null, updatedAt: stamp }
+        : skip,
     ),
   };
 }

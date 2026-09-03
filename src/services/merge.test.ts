@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { Budget, Entry, Ledger, Payment } from "../types.ts";
+import type { Budget, Entry, Ledger, Payment, Skip } from "../types.ts";
 import {
   emptyLedger,
   liveLedger,
@@ -46,6 +46,17 @@ function budget(overrides: Partial<Budget> = {}): Budget {
     id: "b1",
     category: "Home",
     limit: 150_000,
+    updatedAt: "2026-01-01T00:00:00.000Z",
+    deletedAt: null,
+    ...overrides,
+  };
+}
+
+function skip(overrides: Partial<Skip> = {}): Skip {
+  return {
+    id: "e1|2026-01-05",
+    entryId: "e1",
+    occurrence: "2026-01-05",
     updatedAt: "2026-01-01T00:00:00.000Z",
     deletedAt: null,
     ...overrides,
@@ -111,11 +122,11 @@ describe("mergeRecords", () => {
 
 describe("mergeLedgers", () => {
   it("merges both collections at once", () => {
-    const local: Ledger = { entries: [entry({ id: "a" })], payments: [], budgets: [] };
+    const local: Ledger = { entries: [entry({ id: "a" })], payments: [], budgets: [], skips: [] };
     const remote: Ledger = {
       entries: [],
       payments: [payment({ entryId: "a", id: "p1" })],
-      budgets: [budget()],
+      budgets: [budget()], skips: [],
     };
     const merged = mergeLedgers(local, remote);
     expect(merged.entries).toHaveLength(1);
@@ -129,12 +140,12 @@ describe("mergeLedgers", () => {
     const phone: Ledger = {
       entries: [entry()],
       payments: [payment({ amount: 120_000, updatedAt: "2026-01-05T09:00:00.000Z" })],
-      budgets: [],
+      budgets: [], skips: [],
     };
     const laptop: Ledger = {
       entries: [entry()],
       payments: [payment({ amount: 118_000, updatedAt: "2026-01-05T10:00:00.000Z" })],
-      budgets: [],
+      budgets: [], skips: [],
     };
     const merged = mergeLedgers(phone, laptop);
     expect(merged.payments).toHaveLength(1);
@@ -145,16 +156,34 @@ describe("mergeLedgers", () => {
     const phone: Ledger = {
       entries: [],
       payments: [],
-      budgets: [budget({ limit: 150_000, updatedAt: "2026-01-05T09:00:00.000Z" })],
+      budgets: [budget({ limit: 150_000, updatedAt: "2026-01-05T09:00:00.000Z" })], skips: [],
     };
     const laptop: Ledger = {
       entries: [],
       payments: [],
-      budgets: [budget({ limit: 175_000, updatedAt: "2026-01-05T10:00:00.000Z" })],
+      budgets: [budget({ limit: 175_000, updatedAt: "2026-01-05T10:00:00.000Z" })], skips: [],
     };
     const merged = mergeLedgers(phone, laptop);
     expect(merged.budgets).toHaveLength(1);
     expect(merged.budgets[0].limit).toBe(175_000);
+  });
+
+  it("resolves the same skip made on two devices to one row", () => {
+    const phone: Ledger = {
+      entries: [],
+      payments: [],
+      budgets: [],
+      skips: [skip({ updatedAt: "2026-01-05T09:00:00.000Z" })],
+    };
+    const laptop: Ledger = {
+      entries: [],
+      payments: [],
+      budgets: [],
+      skips: [skip({ deletedAt: "2026-01-05T10:00:00.000Z", updatedAt: "2026-01-05T10:00:00.000Z" })],
+    };
+    const merged = mergeLedgers(phone, laptop);
+    expect(merged.skips).toHaveLength(1);
+    expect(merged.skips[0].deletedAt).toBeTruthy();
   });
 });
 
@@ -166,7 +195,7 @@ describe("pruneLedger", () => {
       deletedAt: "2026-05-20T00:00:00.000Z",
       updatedAt: "2026-05-20T00:00:00.000Z",
     });
-    const ledger: Ledger = { entries: [recent], payments: [], budgets: [] };
+    const ledger: Ledger = { entries: [recent], payments: [], budgets: [], skips: [] };
     expect(pruneLedger(ledger, now).entries).toHaveLength(1);
   });
 
@@ -175,7 +204,7 @@ describe("pruneLedger", () => {
       deletedAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-01-01T00:00:00.000Z",
     });
-    const ledger: Ledger = { entries: [ancient], payments: [], budgets: [] };
+    const ledger: Ledger = { entries: [ancient], payments: [], budgets: [], skips: [] };
     expect(pruneLedger(ledger, now).entries).toHaveLength(0);
   });
 
@@ -185,13 +214,13 @@ describe("pruneLedger", () => {
         entry({ deletedAt: "2025-01-01T00:00:00.000Z", updatedAt: "2025-01-01T00:00:00.000Z" }),
       ],
       payments: [payment()],
-      budgets: [],
+      budgets: [], skips: [],
     };
     expect(pruneLedger(ledger, now).payments).toHaveLength(0);
   });
 
   it("keeps payments belonging to a live entry", () => {
-    const ledger: Ledger = { entries: [entry()], payments: [payment()], budgets: [] };
+    const ledger: Ledger = { entries: [entry()], payments: [payment()], budgets: [], skips: [] };
     expect(pruneLedger(ledger, now).payments).toHaveLength(1);
   });
 
@@ -206,8 +235,25 @@ describe("pruneLedger", () => {
       deletedAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-01-01T00:00:00.000Z",
     });
-    const ledger: Ledger = { entries: [], payments: [], budgets: [recent, ancient] };
+    const ledger: Ledger = { entries: [], payments: [], budgets: [recent, ancient], skips: [] };
     expect(pruneLedger(ledger, now).budgets.map((b) => b.id)).toEqual(["recent"]);
+  });
+
+  it("drops a skip whose entry is gone for good", () => {
+    const ledger: Ledger = {
+      entries: [
+        entry({ deletedAt: "2025-01-01T00:00:00.000Z", updatedAt: "2025-01-01T00:00:00.000Z" }),
+      ],
+      payments: [],
+      budgets: [],
+      skips: [skip()],
+    };
+    expect(pruneLedger(ledger, now).skips).toHaveLength(0);
+  });
+
+  it("keeps a skip belonging to a live entry", () => {
+    const ledger: Ledger = { entries: [entry()], payments: [], budgets: [], skips: [skip()] };
+    expect(pruneLedger(ledger, now).skips).toHaveLength(1);
   });
 });
 
@@ -217,11 +263,13 @@ describe("liveLedger", () => {
       entries: [entry({ id: "a" }), entry({ id: "b", deletedAt: "2026-01-02T00:00:00.000Z" })],
       payments: [payment({ deletedAt: "2026-01-02T00:00:00.000Z" })],
       budgets: [budget({ deletedAt: "2026-01-02T00:00:00.000Z" })],
+      skips: [skip({ deletedAt: "2026-01-02T00:00:00.000Z" })],
     };
     const live = liveLedger(ledger);
     expect(live.entries.map((record) => record.id)).toEqual(["a"]);
     expect(live.payments).toEqual([]);
     expect(live.budgets).toEqual([]);
+    expect(live.skips).toEqual([]);
   });
 });
 
@@ -270,11 +318,25 @@ describe("sanitiseLedger", () => {
     expect(result.budgets).toEqual([]);
   });
 
+  it("defaults skips to empty when the field is missing entirely", () => {
+    const result = sanitiseLedger({ entries: [], payments: [] });
+    expect(result.skips).toEqual([]);
+  });
+
+  it("sanitises skips the same way it sanitises payments", () => {
+    const result = sanitiseLedger({
+      entries: [],
+      payments: [],
+      skips: [skip({ id: "ok" }), { entryId: "no id" }, null],
+    });
+    expect(result.skips.map((record) => record.id)).toEqual(["ok"]);
+  });
+
   it("sanitises budgets the same way it sanitises payments", () => {
     const result = sanitiseLedger({
       entries: [],
       payments: [],
-      budgets: [budget({ id: "ok" }), { category: "no id" }, null],
+      budgets: [budget({ id: "ok" }), { category: "no id" }, null], skips: [],
     });
     expect(result.budgets.map((record) => record.id)).toEqual(["ok"]);
   });
@@ -283,7 +345,7 @@ describe("sanitiseLedger", () => {
     const result = sanitiseLedger({
       entries: [],
       payments: [],
-      budgets: [{ ...budget(), limit: -500 }],
+      budgets: [{ ...budget(), limit: -500 }], skips: [],
     });
     expect(result.budgets[0].limit).toBe(0);
   });

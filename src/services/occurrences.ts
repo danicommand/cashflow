@@ -11,7 +11,7 @@
  * began last week.
  */
 
-import type { Entry, Occurrence, Payment } from "../types.ts";
+import type { Entry, Occurrence, Payment, Skip } from "../types.ts";
 import {
   addDays,
   addMonths,
@@ -47,6 +47,15 @@ export function indexPayments(payments: Payment[]): Map<string, Payment> {
     if (!existing || payment.updatedAt > existing.updatedAt) index.set(key, payment);
   }
   return index;
+}
+
+/** Same idea as `indexPayments`, for the deliberately-skipped set. */
+export function indexSkips(skips: Skip[]): Set<string> {
+  const live = new Set<string>();
+  for (const skip of skips) {
+    if (isLive(skip)) live.add(skip.id);
+  }
+  return live;
 }
 
 function withinCount(entry: Entry, index: number): boolean {
@@ -98,14 +107,17 @@ function buildOccurrence(
   date: string,
   index: number,
   paymentIndex: Map<string, Payment>,
+  skipIndex: Set<string>,
 ): Occurrence {
+  const key = occurrenceKey(entry.id, date);
   return {
-    key: occurrenceKey(entry.id, date),
+    key,
     entry,
     date,
     index,
     amount: entry.amount,
-    payment: paymentIndex.get(occurrenceKey(entry.id, date)) ?? null,
+    payment: paymentIndex.get(key) ?? null,
+    skipped: skipIndex.has(key),
   };
 }
 
@@ -113,14 +125,16 @@ function buildOccurrence(
 export function occurrencesInMonth(
   entries: Entry[],
   payments: Payment[],
+  skips: Skip[],
   month: string,
 ): Occurrence[] {
   const paymentIndex = indexPayments(payments);
+  const skipIndex = indexSkips(skips);
   const occurrences: Occurrence[] = [];
   for (const entry of entries) {
     if (!isLive(entry)) continue;
     for (const { date, index } of datesForEntryInMonth(entry, month)) {
-      occurrences.push(buildOccurrence(entry, date, index, paymentIndex));
+      occurrences.push(buildOccurrence(entry, date, index, paymentIndex, skipIndex));
     }
   }
   return sortOccurrences(occurrences);
@@ -130,6 +144,7 @@ export function occurrencesInMonth(
 export function occurrencesInRange(
   entries: Entry[],
   payments: Payment[],
+  skips: Skip[],
   from: string,
   to: string,
 ): Occurrence[] {
@@ -145,41 +160,44 @@ export function occurrencesInRange(
   }
 
   const paymentIndex = indexPayments(payments);
+  const skipIndex = indexSkips(skips);
   const occurrences: Occurrence[] = [];
   for (const entry of entries) {
     if (!isLive(entry)) continue;
     for (const month of months) {
       for (const { date, index } of datesForEntryInMonth(entry, month)) {
         if (date < from || date > to) continue;
-        occurrences.push(buildOccurrence(entry, date, index, paymentIndex));
+        occurrences.push(buildOccurrence(entry, date, index, paymentIndex, skipIndex));
       }
     }
   }
   return sortOccurrences(occurrences);
 }
 
-/** Unsettled expenses from `today` forward, nearest first. */
+/** Unsettled, unskipped expenses from `today` forward, nearest first. */
 export function upcomingExpenses(
   entries: Entry[],
   payments: Payment[],
+  skips: Skip[],
   today: string,
   days: number,
 ): Occurrence[] {
-  return occurrencesInRange(entries, payments, today, addDays(today, days)).filter(
-    (occurrence) => occurrence.entry.kind === "expense" && !occurrence.payment,
+  return occurrencesInRange(entries, payments, skips, today, addDays(today, days)).filter(
+    (occurrence) => occurrence.entry.kind === "expense" && !occurrence.payment && !occurrence.skipped,
   );
 }
 
-/** Unsettled expenses whose date has already passed, oldest first. */
+/** Unsettled, unskipped expenses whose date has already passed, oldest first. */
 export function overdueExpenses(
   entries: Entry[],
   payments: Payment[],
+  skips: Skip[],
   today: string,
   lookbackDays = 365,
 ): Occurrence[] {
   const from = addDays(today, -lookbackDays);
-  return occurrencesInRange(entries, payments, from, addDays(today, -1)).filter(
-    (occurrence) => occurrence.entry.kind === "expense" && !occurrence.payment,
+  return occurrencesInRange(entries, payments, skips, from, addDays(today, -1)).filter(
+    (occurrence) => occurrence.entry.kind === "expense" && !occurrence.payment && !occurrence.skipped,
   );
 }
 

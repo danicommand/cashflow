@@ -71,6 +71,7 @@ function occurrence(
           ...paid,
         }
       : null,
+    skipped: false,
   };
 }
 

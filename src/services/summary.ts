@@ -59,6 +59,11 @@ export function summarise(occurrences: Occurrence[], today: string): MonthSummar
   const summary: MonthSummary = { ...EMPTY, counts: { ...EMPTY.counts } };
 
   for (const occurrence of occurrences) {
+    // A skipped occurrence is not owed and not received — it is not part of
+    // this cycle at all, the same as if the entry had no occurrence here.
+    // It still exists for a caller that wants to *show* it (as "skipped",
+    // distinct from paid), just not for any of these totals.
+    if (occurrence.skipped) continue;
     const settled = occurrence.payment;
     if (occurrence.entry.kind === "expense") {
       summary.expenseTotal += occurrence.amount;
@@ -106,6 +111,7 @@ export interface DayTotals {
 export function totalsByDay(occurrences: Occurrence[]): Map<string, DayTotals> {
   const byDay = new Map<string, DayTotals>();
   for (const occurrence of occurrences) {
+    if (occurrence.skipped) continue;
     const totals = byDay.get(occurrence.date) ?? {
       expense: 0,
       income: 0,
@@ -138,6 +144,7 @@ export function totalsByCategory(occurrences: Occurrence[]): CategoryTotal[] {
 
   for (const occurrence of occurrences) {
     if (occurrence.entry.kind !== "expense") continue;
+    if (occurrence.skipped) continue;
     const key = occurrence.entry.category.trim() || "";
     const bucket = byCategory.get(key) ?? { total: 0, paid: 0 };
     bucket.total += occurrence.amount;

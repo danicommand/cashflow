@@ -40,7 +40,9 @@ import {
   restoreEntry,
   setBudget,
   settleOccurrence,
+  skipOccurrence,
   unsettleOccurrence,
+  unskipOccurrence,
   updateEntry,
   type EntryDraft,
 } from "./services/ledger.ts";
@@ -145,7 +147,7 @@ export default function App() {
   const { status: syncStatus, syncNow } = useSync(settings.syncCode, ledger, applyMerged);
 
   const occurrences = useMemo(
-    () => occurrencesInMonth(ledger.entries, ledger.payments, month),
+    () => occurrencesInMonth(ledger.entries, ledger.payments, ledger.skips, month),
     [ledger, month],
   );
 
@@ -174,8 +176,14 @@ export default function App() {
    * meant to be true no matter which month is being browsed.
    */
   const { elsewhere, globalOverdueTotal } = useMemo(() => {
-    const overdue = overdueExpenses(ledger.entries, ledger.payments, today);
-    const upcoming = upcomingExpenses(ledger.entries, ledger.payments, today, UPCOMING_WINDOW_DAYS);
+    const overdue = overdueExpenses(ledger.entries, ledger.payments, ledger.skips, today);
+    const upcoming = upcomingExpenses(
+      ledger.entries,
+      ledger.payments,
+      ledger.skips,
+      today,
+      UPCOMING_WINDOW_DAYS,
+    );
     return {
       globalOverdueTotal: overdue.reduce((sum, occurrence) => sum + occurrence.amount, 0),
       elsewhere: [...overdue, ...upcoming]
@@ -186,7 +194,7 @@ export default function App() {
 
   /** What was actually paid in each of the last several months, for the trend chart. */
   const history = useMemo(
-    () => spendHistory(ledger.entries, ledger.payments, month, today, HISTORY_MONTHS),
+    () => spendHistory(ledger.entries, ledger.payments, ledger.skips, month, today, HISTORY_MONTHS),
     [ledger, month, today],
   );
 
@@ -284,7 +292,17 @@ export default function App() {
       );
       return;
     }
+    if (occurrence.skipped) {
+      setLedger((current) => unskipOccurrence(current, occurrence.entry.id, occurrence.date));
+      return;
+    }
     setSettling(occurrence);
+  };
+
+  const skipOccurrenceHandler = () => {
+    if (!settling) return;
+    setLedger((current) => skipOccurrence(current, settling.entry.id, settling.date));
+    setSettling(null);
   };
 
   /**
@@ -391,7 +409,7 @@ export default function App() {
 
   const eraseLocal = () => {
     clearLedger();
-    setLedger({ entries: [], payments: [], budgets: [] });
+    setLedger({ entries: [], payments: [], budgets: [], skips: [] });
   };
 
   const exportCsv = () => {
@@ -427,7 +445,7 @@ export default function App() {
   const resetDeviceForLock = () => {
     clearLock();
     clearLedger();
-    setLedger({ entries: [], payments: [], budgets: [] });
+    setLedger({ entries: [], payments: [], budgets: [], skips: [] });
     setLockEnabled(false);
     setLocked(false);
   };
@@ -628,6 +646,7 @@ export default function App() {
           language={settings.language}
           t={t}
           onConfirm={(amount, paidOn) => settle(settling, amount, paidOn)}
+          onSkip={skipOccurrenceHandler}
           onClose={() => setSettling(null)}
         />
       ) : null}
@@ -658,7 +677,13 @@ export default function App() {
 
       {viewingYear ? (
         <YearReviewSheet
-          review={yearSummary(ledger.entries, ledger.payments, parseMonthKey(month).year, today)}
+          review={yearSummary(
+            ledger.entries,
+            ledger.payments,
+            ledger.skips,
+            parseMonthKey(month).year,
+            today,
+          )}
           currency={settings.currency}
           language={settings.language}
           t={t}

@@ -50,6 +50,7 @@ function occurrence(
           deletedAt: null,
         }
       : null,
+    skipped: false,
   };
 }
 

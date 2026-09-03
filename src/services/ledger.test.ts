@@ -9,7 +9,9 @@ import {
   knownCategories,
   restoreEntry,
   settleOccurrence,
+  skipOccurrence,
   unsettleOccurrence,
+  unskipOccurrence,
   updateEntry,
   type EntryDraft,
 } from "./ledger.ts";
@@ -27,7 +29,7 @@ function draft(overrides: Partial<EntryDraft> = {}): EntryDraft {
   };
 }
 
-const EMPTY: Ledger = { entries: [], payments: [], budgets: [] };
+const EMPTY: Ledger = { entries: [], payments: [], budgets: [], skips: [] };
 
 describe("addEntry", () => {
   it("stores the entry with matching timestamps", () => {
@@ -45,7 +47,7 @@ describe("addEntry", () => {
   });
 
   it("does not mutate the ledger it was given", () => {
-    const before: Ledger = { entries: [], payments: [], budgets: [] };
+    const before: Ledger = { entries: [], payments: [], budgets: [], skips: [] };
     addEntry(before, draft(), NOW);
     expect(before.entries).toHaveLength(0);
   });
@@ -172,8 +174,8 @@ describe("settleOccurrence", () => {
     const id = ledger.entries[0].id;
     ledger = settleOccurrence(ledger, id, "2026-01-05", 120_000, "2026-01-04", NOW);
 
-    const january = occurrencesInMonth(ledger.entries, ledger.payments, "2026-01");
-    const february = occurrencesInMonth(ledger.entries, ledger.payments, "2026-02");
+    const january = occurrencesInMonth(ledger.entries, ledger.payments, ledger.skips, "2026-01");
+    const february = occurrencesInMonth(ledger.entries, ledger.payments, ledger.skips, "2026-02");
     expect(january[0].payment?.paidOn).toBe("2026-01-04");
     expect(february[0].payment).toBeNull();
   });
@@ -204,7 +206,7 @@ describe("unsettleOccurrence", () => {
     ledger = settleOccurrence(ledger, id, "2026-01-05", 120_000, "2026-01-05", NOW);
     ledger = unsettleOccurrence(ledger, id, "2026-01-05", NOW);
 
-    const january = occurrencesInMonth(ledger.entries, ledger.payments, "2026-01");
+    const january = occurrencesInMonth(ledger.entries, ledger.payments, ledger.skips, "2026-01");
     expect(january[0].payment).toBeNull();
     // The row is kept as a tombstone so the undo reaches the other device.
     expect(ledger.payments).toHaveLength(1);
@@ -220,7 +222,100 @@ describe("unsettleOccurrence", () => {
 
     expect(ledger.payments).toHaveLength(1);
     expect(ledger.payments[0].deletedAt).toBeNull();
-    expect(occurrencesInMonth(ledger.entries, ledger.payments, "2026-01")[0].payment).not.toBeNull();
+    expect(occurrencesInMonth(ledger.entries, ledger.payments, ledger.skips, "2026-01")[0].payment).not.toBeNull();
+  });
+});
+
+describe("skipOccurrence", () => {
+  it("marks exactly one occurrence of a repeating entry as skipped", () => {
+    let ledger = addEntry(EMPTY, draft({ repeat: "monthly" }), NOW);
+    const id = ledger.entries[0].id;
+    ledger = skipOccurrence(ledger, id, "2026-01-05", NOW);
+
+    const january = occurrencesInMonth(ledger.entries, ledger.payments, ledger.skips, "2026-01");
+    const february = occurrencesInMonth(ledger.entries, ledger.payments, ledger.skips, "2026-02");
+    expect(january[0].skipped).toBe(true);
+    expect(february[0].skipped).toBe(false);
+  });
+
+  it("clears a payment on the same occurrence, so it can't be both paid and skipped", () => {
+    let ledger = addEntry(EMPTY, draft(), NOW);
+    const id = ledger.entries[0].id;
+    ledger = settleOccurrence(ledger, id, "2026-01-05", 120_000, "2026-01-05", NOW);
+    ledger = skipOccurrence(ledger, id, "2026-01-05", NOW);
+
+    expect(ledger.payments[0].deletedAt).toBe(NOW.toISOString());
+    const january = occurrencesInMonth(ledger.entries, ledger.payments, ledger.skips, "2026-01");
+    expect(january[0].payment).toBeNull();
+    expect(january[0].skipped).toBe(true);
+  });
+
+  it("derives the skip id from the entry and the occurrence", () => {
+    let ledger = addEntry(EMPTY, draft(), NOW);
+    const id = ledger.entries[0].id;
+    ledger = skipOccurrence(ledger, id, "2026-01-05", NOW);
+    expect(ledger.skips[0].id).toBe(`${id}|2026-01-05`);
+  });
+
+  it("replaces an earlier skip rather than adding a second", () => {
+    let ledger = addEntry(EMPTY, draft(), NOW);
+    const id = ledger.entries[0].id;
+    ledger = skipOccurrence(ledger, id, "2026-01-05", NOW);
+    ledger = skipOccurrence(ledger, id, "2026-01-05", NOW);
+    expect(ledger.skips).toHaveLength(1);
+  });
+});
+
+describe("unskipOccurrence", () => {
+  it("puts the amount back into what is still owed", () => {
+    let ledger = addEntry(EMPTY, draft(), NOW);
+    const id = ledger.entries[0].id;
+    ledger = skipOccurrence(ledger, id, "2026-01-05", NOW);
+    ledger = unskipOccurrence(ledger, id, "2026-01-05", NOW);
+
+    const january = occurrencesInMonth(ledger.entries, ledger.payments, ledger.skips, "2026-01");
+    expect(january[0].skipped).toBe(false);
+    // The row is kept as a tombstone so the undo reaches the other device.
+    expect(ledger.skips).toHaveLength(1);
+    expect(ledger.skips[0].deletedAt).toBe(NOW.toISOString());
+  });
+
+  it("can be skipped again afterwards", () => {
+    let ledger = addEntry(EMPTY, draft(), NOW);
+    const id = ledger.entries[0].id;
+    ledger = skipOccurrence(ledger, id, "2026-01-05", NOW);
+    ledger = unskipOccurrence(ledger, id, "2026-01-05", NOW);
+    ledger = skipOccurrence(ledger, id, "2026-01-05", NOW);
+
+    expect(ledger.skips).toHaveLength(1);
+    expect(ledger.skips[0].deletedAt).toBeNull();
+  });
+});
+
+describe("settleOccurrence clearing a skip", () => {
+  it("clears a skip on the same occurrence, so it can't be both skipped and paid", () => {
+    let ledger = addEntry(EMPTY, draft(), NOW);
+    const id = ledger.entries[0].id;
+    ledger = skipOccurrence(ledger, id, "2026-01-05", NOW);
+    ledger = settleOccurrence(ledger, id, "2026-01-05", 120_000, "2026-01-05", NOW);
+
+    expect(ledger.skips[0].deletedAt).toBe(NOW.toISOString());
+    const january = occurrencesInMonth(ledger.entries, ledger.payments, ledger.skips, "2026-01");
+    expect(january[0].skipped).toBe(false);
+    expect(january[0].payment).not.toBeNull();
+  });
+});
+
+describe("deleteEntry and restoreEntry with skips", () => {
+  it("tombstones and restores a skip along with its entry", () => {
+    let ledger = addEntry(EMPTY, draft(), NOW);
+    const id = ledger.entries[0].id;
+    ledger = skipOccurrence(ledger, id, "2026-01-05", NOW);
+    ledger = deleteEntry(ledger, id, NOW);
+    expect(ledger.skips[0].deletedAt).toBe(NOW.toISOString());
+
+    const restored = restoreEntry(ledger, id, NOW.toISOString(), NOW);
+    expect(restored.skips[0].deletedAt).toBeNull();
   });
 });
 

@@ -31,8 +31,9 @@ export function OccurrenceRow({
   onOpen,
 }: OccurrenceRowProps) {
   const settled = occurrence.payment !== null;
+  const skipped = occurrence.skipped;
   const isIncome = occurrence.entry.kind === "income";
-  const overdue = !settled && !isIncome && occurrence.date < today;
+  const overdue = !settled && !skipped && !isIncome && occurrence.date < today;
   const shown = occurrence.payment?.amount ?? occurrence.amount;
 
   const instalment =
@@ -43,25 +44,30 @@ export function OccurrenceRow({
         })
       : null;
 
-  const meta = settled
-    ? t(isIncome ? "status.receivedOn" : "status.paidOn", {
-        date: formatDate(occurrence.payment!.paidOn, language),
-      })
-    : isIncome
-      ? formatDate(occurrence.date, language)
-      : describeDueDate(occurrence.date, today, t);
+  const meta = skipped
+    ? t("status.skipped")
+    : settled
+      ? t(isIncome ? "status.receivedOn" : "status.paidOn", {
+          date: formatDate(occurrence.payment!.paidOn, language),
+        })
+      : isIncome
+        ? formatDate(occurrence.date, language)
+        : describeDueDate(occurrence.date, today, t);
 
-  const toggleLabel = settled
-    ? t("action.undo")
-    : isIncome
-      ? t("action.markReceived")
-      : t("action.markPaid");
+  const toggleLabel = skipped
+    ? t("action.undoSkip")
+    : settled
+      ? t("action.undo")
+      : isIncome
+        ? t("action.markReceived")
+        : t("action.markPaid");
 
   return (
     <li
       className={[
         "row",
         settled ? "settled" : "",
+        skipped ? "skipped" : "",
         overdue ? "overdue" : "",
         isIncome ? "is-income" : "",
       ]
@@ -72,14 +78,18 @@ export function OccurrenceRow({
       <button
         type="button"
         className="tick"
-        aria-pressed={settled}
+        aria-pressed={settled || skipped}
         aria-label={`${toggleLabel}: ${occurrence.entry.description}`}
         onClick={() => onToggle(occurrence)}
       >
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          {/* One continuous stroke, drawn rather than switched on. The dash
-              length is set in CSS so the draw can be reversed on undo. */}
-          <path className="tick-check" d="M5 12.5l4.5 4.5L19 7.5" />
+          {skipped ? (
+            <path className="tick-skip" d="M6 12h12" />
+          ) : (
+            // One continuous stroke, drawn rather than switched on. The dash
+            // length is set in CSS so the draw can be reversed on undo.
+            <path className="tick-check" d="M5 12.5l4.5 4.5L19 7.5" />
+          )}
         </svg>
       </button>
 

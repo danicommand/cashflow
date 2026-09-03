@@ -82,8 +82,11 @@ export function MonthView({
 
   const expenses = occurrences.filter((item) => item.entry.kind === "expense");
   const incomes = occurrences.filter((item) => item.entry.kind === "income");
-  const openExpenses = expenses.filter((item) => !item.payment);
-  const settledExpenses = expenses.filter((item) => item.payment);
+  const openExpenses = expenses.filter((item) => !item.payment && !item.skipped);
+  // A skipped bill is settled in the sense that matters to this list: there
+  // is nothing left to do about it, so it belongs with what is already paid
+  // rather than crowding the list of what is still owed.
+  const settledExpenses = expenses.filter((item) => item.payment || item.skipped);
 
   const money = (cents: number) => formatMoney(cents, currency, language);
 

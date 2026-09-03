@@ -8,7 +8,7 @@
  * through the calendar by hand.
  */
 
-import type { Entry, Payment } from "../types.ts";
+import type { Entry, Payment, Skip } from "../types.ts";
 import { shiftMonthKey } from "./dates.ts";
 import { occurrencesInMonth } from "./occurrences.ts";
 import { summarise } from "./summary.ts";
@@ -26,6 +26,7 @@ export interface MonthSpend {
 export function spendHistory(
   entries: Entry[],
   payments: Payment[],
+  skips: Skip[],
   throughMonth: string,
   today: string,
   count: number,
@@ -38,7 +39,7 @@ export function spendHistory(
   }
 
   return months.map((month) => {
-    const occurrences = occurrencesInMonth(entries, payments, month);
+    const occurrences = occurrencesInMonth(entries, payments, skips, month);
     return { month, paidTotal: summarise(occurrences, today).paidTotal };
   });
 }

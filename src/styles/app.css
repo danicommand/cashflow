@@ -699,6 +699,12 @@ svg {
   color: #fff;
 }
 
+.row.skipped .tick {
+  border-color: var(--line-strong);
+  background: var(--surface-sunken);
+  color: var(--ink-soft);
+}
+
 .row.overdue .tick {
   border-color: var(--alert);
 }
@@ -806,7 +812,9 @@ svg {
 }
 
 .row.settled .row-title,
-.row.settled .row-amount {
+.row.settled .row-amount,
+.row.skipped .row-title,
+.row.skipped .row-amount {
   color: var(--ink-faint);
 }
 
@@ -822,7 +830,8 @@ svg {
   transition: background-size var(--slow) var(--ease-arrive) 120ms;
 }
 
-.row.settled .row-title {
+.row.settled .row-title,
+.row.skipped .row-title {
   background-size: 100% 1px;
 }
 
@@ -1876,6 +1885,18 @@ svg {
 }
 
 .row.settled .tick-check {
+  stroke-dashoffset: 0;
+}
+
+/* A dash rather than a check — deliberately not paid, not a lesser version
+   of paid. Shares the same draw mechanics as .tick-check. */
+.tick-skip {
+  stroke-dasharray: 12;
+  stroke-dashoffset: 12;
+  transition: stroke-dashoffset 300ms var(--ease-arrive) 60ms;
+}
+
+.row.skipped .tick-skip {
   stroke-dashoffset: 0;
 }
 

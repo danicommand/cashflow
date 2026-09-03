@@ -63,11 +63,25 @@ export interface Budget extends SyncedRecord {
   limit: number;
 }
 
+/**
+ * "This one instance doesn't happen" — a subscription paused for a month, a
+ * bill waived, a one-off that turned out not to apply. Deliberately its own
+ * record rather than a zero-amount `Payment`: no money moved, so it must
+ * never be counted as paid, and it needs its own identity to be undone,
+ * which a payment of 0 would blur into "settled for nothing."
+ */
+export interface Skip extends SyncedRecord {
+  entryId: string;
+  /** Which occurrence is skipped, `YYYY-MM-DD`. */
+  occurrence: string;
+}
+
 /** Everything the app owns, and the unit that gets synced. */
 export interface Ledger {
   entries: Entry[];
   payments: Payment[];
   budgets: Budget[];
+  skips: Skip[];
 }
 
 export type Language = "en" | "pt";
@@ -96,4 +110,6 @@ export interface Occurrence {
   amount: number;
   /** The settlement, when there is one. */
   payment: Payment | null;
+  /** True when this instance was deliberately skipped rather than paid. */
+  skipped: boolean;
 }

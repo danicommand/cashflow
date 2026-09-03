@@ -35,7 +35,7 @@ function payment(entryId: string, occurrence: string, amount: number): Payment {
 
 describe("yearSummary", () => {
   it("is all zero for a year with nothing settled", () => {
-    const summary = yearSummary([entry()], [], 2026, "2026-06-15");
+    const summary = yearSummary([entry()], [], [], 2026, "2026-06-15");
     expect(summary.paidTotal).toBe(0);
     expect(summary.receivedTotal).toBe(0);
     expect(summary.net).toBe(0);
@@ -43,7 +43,7 @@ describe("yearSummary", () => {
   });
 
   it("returns twelve monthly points, January first", () => {
-    const summary = yearSummary([entry()], [], 2026, "2026-06-15");
+    const summary = yearSummary([entry()], [], [], 2026, "2026-06-15");
     expect(summary.monthlyPaid).toHaveLength(12);
   });
 
@@ -53,7 +53,7 @@ describe("yearSummary", () => {
       payment("rent", "2026-02-05", 120_000),
       payment("rent", "2026-06-05", 120_000),
     ];
-    const summary = yearSummary([entry()], payments, 2026, "2026-06-15");
+    const summary = yearSummary([entry()], payments, [], 2026, "2026-06-15");
     expect(summary.paidTotal).toBe(360_000);
     expect(summary.monthlyPaid[0]).toBe(120_000);
     expect(summary.monthlyPaid[5]).toBe(120_000);
@@ -65,7 +65,7 @@ describe("yearSummary", () => {
       payment("rent", "2025-12-05", 120_000),
       payment("rent", "2027-01-05", 120_000),
     ];
-    const summary = yearSummary([entry()], payments, 2026, "2026-06-15");
+    const summary = yearSummary([entry()], payments, [], 2026, "2026-06-15");
     expect(summary.paidTotal).toBe(0);
   });
 
@@ -78,7 +78,7 @@ describe("yearSummary", () => {
       payment("rent", "2026-01-05", 120_000),
       payment("salary", "2026-01-05", 350_000),
     ];
-    const summary = yearSummary(entries, payments, 2026, "2026-06-15");
+    const summary = yearSummary(entries, payments, [], 2026, "2026-06-15");
     expect(summary.receivedTotal).toBe(350_000);
     expect(summary.net).toBe(230_000);
   });
@@ -94,7 +94,7 @@ describe("yearSummary", () => {
       payment("car", "2026-01-05", 30_000),
       payment("salary", "2026-01-05", 500_000),
     ];
-    const summary = yearSummary(entries, payments, 2026, "2026-06-15");
+    const summary = yearSummary(entries, payments, [], 2026, "2026-06-15");
     expect(summary.topCategory).toEqual({ category: "Home", total: 120_000 });
   });
 
@@ -104,7 +104,7 @@ describe("yearSummary", () => {
       payment("rent", "2026-01-05", 500_000),
       payment("car", "2026-01-05", 10_000),
     ];
-    const summary = yearSummary(entries, payments, 2026, "2026-06-15");
+    const summary = yearSummary(entries, payments, [], 2026, "2026-06-15");
     expect(summary.topCategory?.category).toBe("Car");
   });
 });

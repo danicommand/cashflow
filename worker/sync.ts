@@ -30,6 +30,7 @@ export const MAX_SPACE_BYTES = 400_000;
 export const MAX_ENTRIES = 5_000;
 export const MAX_PAYMENTS = 40_000;
 export const MAX_BUDGETS = 500;
+export const MAX_SKIPS = 5_000;
 
 /** Spaces untouched for this long are dropped; nothing is syncing to them. */
 export const SPACE_TTL_DAYS = 400;
@@ -50,7 +51,8 @@ function tooMany(ledger: Ledger): boolean {
   return (
     ledger.entries.length > MAX_ENTRIES ||
     ledger.payments.length > MAX_PAYMENTS ||
-    ledger.budgets.length > MAX_BUDGETS
+    ledger.budgets.length > MAX_BUDGETS ||
+    ledger.skips.length > MAX_SKIPS
   );
 }
 
@@ -118,14 +120,14 @@ async function readSpace(env: SyncEnv, space: string): Promise<Ledger> {
   const row = await env.DB.prepare("SELECT data FROM spaces WHERE id = ?")
     .bind(space)
     .first<{ data: string }>();
-  if (!row) return { entries: [], payments: [], budgets: [] };
+  if (!row) return { entries: [], payments: [], budgets: [], skips: [] };
   try {
     return sanitiseLedger(JSON.parse(row.data));
   } catch {
     // A row that will not parse is unusable either way. Treating it as empty
     // lets the device that is syncing rebuild it from its own copy rather than
     // wedging every future sync on a permanent 500.
-    return { entries: [], payments: [], budgets: [] };
+    return { entries: [], payments: [], budgets: [], skips: [] };
   }
 }
 

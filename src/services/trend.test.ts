@@ -36,12 +36,12 @@ function payment(occurrence: string, overrides: Partial<Payment> = {}): Payment 
 
 describe("spendHistory", () => {
   it("returns the requested number of months, oldest first", () => {
-    const history = spendHistory([entry()], [], "2026-04", "2026-04-15", 3);
+    const history = spendHistory([entry()], [], [], "2026-04", "2026-04-15", 3);
     expect(history.map((point) => point.month)).toEqual(["2026-02", "2026-03", "2026-04"]);
   });
 
   it("crosses a year boundary", () => {
-    const history = spendHistory([entry()], [], "2026-02", "2026-02-10", 4);
+    const history = spendHistory([entry()], [], [], "2026-02", "2026-02-10", 4);
     expect(history.map((point) => point.month)).toEqual([
       "2025-11",
       "2025-12",
@@ -52,7 +52,7 @@ describe("spendHistory", () => {
 
   it("reports what was actually paid each month, not what was billed", () => {
     const payments = [payment("2026-01-05"), payment("2026-02-05", { amount: 100_000 })];
-    const history = spendHistory([entry()], payments, "2026-03", "2026-03-15", 3);
+    const history = spendHistory([entry()], payments, [], "2026-03", "2026-03-15", 3);
     expect(history).toEqual([
       { month: "2026-01", paidTotal: 120_000 },
       { month: "2026-02", paidTotal: 100_000 },
@@ -61,14 +61,14 @@ describe("spendHistory", () => {
   });
 
   it("returns zero for a month with nothing settled", () => {
-    const history = spendHistory([entry()], [], "2026-01", "2026-01-10", 1);
+    const history = spendHistory([entry()], [], [], "2026-01", "2026-01-10", 1);
     expect(history).toEqual([{ month: "2026-01", paidTotal: 0 }]);
   });
 
   it("ignores unsettled occurrences and income", () => {
     const entries = [entry(), entry({ id: "salary", kind: "income", amount: 300_000 })];
     const payments = [payment("2026-01-05", { entryId: "salary", id: "salary|2026-01-05" })];
-    const history = spendHistory(entries, payments, "2026-01", "2026-01-10", 1);
+    const history = spendHistory(entries, payments, [], "2026-01", "2026-01-10", 1);
     // Rent went unpaid; the settled record belongs to income, not an expense.
     expect(history).toEqual([{ month: "2026-01", paidTotal: 0 }]);
   });

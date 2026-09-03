@@ -13,6 +13,7 @@ interface SettleSheetProps {
   language: Language;
   t: Translator;
   onConfirm: (amount: number, paidOn: string) => void;
+  onSkip: () => void;
   onClose: () => void;
 }
 
@@ -31,6 +32,7 @@ export function SettleSheet({
   language,
   t,
   onConfirm,
+  onSkip,
   onClose,
 }: SettleSheetProps) {
   const isIncome = occurrence.entry.kind === "income";
@@ -62,7 +64,9 @@ export function SettleSheet({
       onClose={onClose}
       footer={
         <>
-          <span />
+          <button type="button" className="link-button" onClick={onSkip}>
+            {t("action.skip")}
+          </button>
           <div className="sheet-foot-actions">
             <button type="button" className="button" onClick={onClose}>
               {t("action.cancel")}
@@ -121,6 +125,8 @@ export function SettleSheet({
             {error}
           </p>
         ) : null}
+
+        <p className="field-hint">{t("pay.skipHint")}</p>
 
         <button type="submit" className="visually-hidden">
           {t("action.save")}
