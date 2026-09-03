@@ -5,11 +5,20 @@ import { EntrySheet } from "./components/EntrySheet.tsx";
 import { MonthView } from "./components/MonthView.tsx";
 import { SettingsView } from "./components/SettingsView.tsx";
 import { SettleSheet } from "./components/SettleSheet.tsx";
+import { useFabVisible } from "./hooks/useFabVisible.ts";
 import { useSync } from "./hooks/useSync.ts";
 import { FLIGHT_CATCH_MS, flyToTotal, measureOccurrenceAmount } from "./motion/flight.ts";
 import { translatorFor } from "./i18n.ts";
 import type { Entry, Ledger, Occurrence, Settings } from "./types.ts";
-import { currentMonthKey, firstDayOfMonth, shiftMonthKey, todayIso } from "./services/dates.ts";
+import {
+  addDays,
+  currentMonthKey,
+  firstDayOfMonth,
+  lastDayOfMonth,
+  monthKey,
+  shiftMonthKey,
+  todayIso,
+} from "./services/dates.ts";
 import { formatMonthTitle } from "./services/formats.ts";
 import {
   addEntry,
@@ -23,7 +32,8 @@ import {
   type EntryDraft,
 } from "./services/ledger.ts";
 import { mergeLedgers } from "./services/merge.ts";
-import { occurrencesInMonth } from "./services/occurrences.ts";
+import { occurrencesInMonth, overdueExpenses, upcomingExpenses } from "./services/occurrences.ts";
+import { runningBalance } from "./services/summary.ts";
 import {
   buildBackup,
   clearLedger,
@@ -33,6 +43,12 @@ import {
   saveLedger,
   saveSettings,
 } from "./services/storage.ts";
+
+/** How far ahead an upcoming bill counts as "coming up" in the cross-month panel. */
+const UPCOMING_WINDOW_DAYS = 14;
+
+/** How many cross-month items the panel shows before it stops rather than scrolls. */
+const UPCOMING_LIMIT = 5;
 
 type Tab = "month" | "calendar" | "settings";
 
@@ -60,6 +76,7 @@ export default function App() {
    * and then rolls as the amount lands rather than changing before it arrives.
    */
   const [catchDelay, setCatchDelay] = useState(0);
+  const fabVisible = useFabVisible();
 
   const t = useMemo(() => translatorFor(settings.language), [settings.language]);
   const today = todayIso();
@@ -94,6 +111,41 @@ export default function App() {
     [ledger, month],
   );
 
+  /**
+   * The running cash balance through the end of the displayed month, and the
+   * slice of it that arrived before the month even started. Both are keyed on
+   * `payment.paidOn`, not on any occurrence's due date, so a bill due in
+   * August but settled in September still spends September's balance —
+   * see `runningBalance` for why that distinction matters.
+   */
+  const { balance, carriedIn } = useMemo(() => {
+    const monthEnd = lastDayOfMonth(month);
+    const dayBeforeMonth = addDays(firstDayOfMonth(month), -1);
+    return {
+      balance: runningBalance(ledger.entries, ledger.payments, monthEnd),
+      carriedIn: runningBalance(ledger.entries, ledger.payments, dayBeforeMonth),
+    };
+  }, [ledger, month]);
+
+  /**
+   * Overdue and soon-due bills that belong to a month other than the one on
+   * screen, plus the true overdue total regardless of month. The current
+   * month's own overdue and upcoming bills are already in its list below;
+   * showing them again in the cross-month panel would just be noise, but the
+   * overdue *total* stays unfiltered — it is the one figure on the month view
+   * meant to be true no matter which month is being browsed.
+   */
+  const { elsewhere, globalOverdueTotal } = useMemo(() => {
+    const overdue = overdueExpenses(ledger.entries, ledger.payments, today);
+    const upcoming = upcomingExpenses(ledger.entries, ledger.payments, today, UPCOMING_WINDOW_DAYS);
+    return {
+      globalOverdueTotal: overdue.reduce((sum, occurrence) => sum + occurrence.amount, 0),
+      elsewhere: [...overdue, ...upcoming]
+        .filter((occurrence) => monthKey(occurrence.date) !== month)
+        .slice(0, UPCOMING_LIMIT),
+    };
+  }, [ledger, today, month]);
+
   const openEditorForNew = () => {
     // A bill added while looking at March is almost certainly a March bill.
     const start = month === currentMonthKey() ? today : firstDayOfMonth(month);
@@ -104,16 +156,19 @@ export default function App() {
     setEditor({ entry: occurrence.entry, draft: draftFrom(occurrence.entry) });
   };
 
-  const stepMonth = (step: number) => {
-    setMonthStep(step > 0 ? "forward" : "back");
-    setMonth((current) => shiftMonthKey(current, step));
-  };
-
-  const goToThisMonth = () => {
-    const target = currentMonthKey();
-    setMonthStep(target > month ? "forward" : "back");
+  /** Every way of changing months funnels through here, so the travel
+   * direction is always set from where the view is actually going rather
+   * than from how it was asked for. */
+  const goToMonth = (target: string) => {
+    setMonthStep(target >= month ? "forward" : "back");
     setMonth(target);
   };
+
+  const stepMonth = (step: number) => goToMonth(shiftMonthKey(month, step));
+
+  const goToThisMonth = () => goToMonth(currentMonthKey());
+
+  const jumpToOccurrenceMonth = (occurrence: Occurrence) => goToMonth(monthKey(occurrence.date));
 
   const toggleOccurrence = (occurrence: Occurrence) => {
     if (occurrence.payment) {
@@ -267,56 +322,62 @@ export default function App() {
         {/* Keyed on what is being shown, so switching tab or month replays the
             entrance; the direction attribute tells it which way to travel. */}
         <div className="view" key={`${tab}:${month}`} data-step={monthStep}>
-        {tab === "month" ? (
-          <MonthView
-            occurrences={occurrences}
-            today={today}
-            currency={settings.currency}
-            language={settings.language}
-            t={t}
-            catchDelay={catchDelay}
-            onToggle={toggleOccurrence}
-            onOpen={openEditorFor}
-          />
-        ) : null}
+          {tab === "month" ? (
+            <MonthView
+              occurrences={occurrences}
+              today={today}
+              currency={settings.currency}
+              language={settings.language}
+              t={t}
+              catchDelay={catchDelay}
+              balance={balance}
+              carriedIn={carriedIn}
+              globalOverdueTotal={globalOverdueTotal}
+              elsewhere={elsewhere}
+              onToggle={toggleOccurrence}
+              onOpen={openEditorFor}
+              onJumpElsewhere={jumpToOccurrenceMonth}
+            />
+          ) : null}
 
-        {tab === "calendar" ? (
-          <CalendarView
-            month={month}
-            occurrences={occurrences}
-            today={today}
-            currency={settings.currency}
-            language={settings.language}
-            t={t}
-            onToggle={toggleOccurrence}
-            onOpen={openEditorFor}
-          />
-        ) : null}
+          {tab === "calendar" ? (
+            <CalendarView
+              month={month}
+              occurrences={occurrences}
+              today={today}
+              currency={settings.currency}
+              language={settings.language}
+              t={t}
+              onToggle={toggleOccurrence}
+              onOpen={openEditorFor}
+            />
+          ) : null}
 
-        {tab === "settings" ? (
-          <SettingsView
-            settings={settings}
-            onChange={setSettings}
-            counts={{
-              entries: ledger.entries.filter((entry) => !entry.deletedAt).length,
-              payments: ledger.payments.filter((payment) => !payment.deletedAt).length,
-            }}
-            sync={syncStatus}
-            onSyncNow={syncNow}
-            onExport={exportBackup}
-            onImport={(file) => void importBackup(file)}
-            onErase={eraseLocal}
-            importMessage={importMessage}
-            t={t}
-          />
-        ) : null}
+          {tab === "settings" ? (
+            <SettingsView
+              settings={settings}
+              onChange={setSettings}
+              counts={{
+                entries: ledger.entries.filter((entry) => !entry.deletedAt).length,
+                payments: ledger.payments.filter((payment) => !payment.deletedAt).length,
+              }}
+              sync={syncStatus}
+              onSyncNow={syncNow}
+              onExport={exportBackup}
+              onImport={(file) => void importBackup(file)}
+              onErase={eraseLocal}
+              importMessage={importMessage}
+              t={t}
+            />
+          ) : null}
         </div>
       </main>
 
       {tab !== "settings" ? (
         <button
           type="button"
-          className="fab"
+          className={fabVisible ? "fab" : "fab fab-hidden"}
+          tabIndex={fabVisible ? 0 : -1}
           onClick={openEditorForNew}
           aria-label={t("action.addExpense")}
         >

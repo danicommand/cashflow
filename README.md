@@ -18,6 +18,12 @@ English and Portuguese, light and dark, USD / BRL / EUR / GBP.
 - **See the month**: what is left to pay, how much is already paid, what is
   overdue, what is still ahead, what came in, and where the money goes by
   category.
+- **See your balance carry over.** The Balance tile is a running total —
+  income minus expenses across every month you've used the app, not just the
+  one on screen — so a surplus in August is still there when September opens.
+- **See what needs attention in other months.** A "Not this month" panel
+  surfaces anything overdue or due in the next two weeks that belongs to a
+  different month than the one you're looking at, with one tap to jump there.
 - **See the calendar**: which days the bills land on, with the unpaid total
   under each date.
 - **Sync across devices** with a personal code (optional, see below).
@@ -57,6 +63,15 @@ migrations/     D1 schema
 5th instance was settled on the 4th for 1180"). Keeping them apart is what lets
 a recurring bill stay a single row while every month still remembers its own
 state, with no job to roll the ledger forward when a month ticks over.
+
+**The Balance tile is keyed on `payment.paidOn`, not on any occurrence's due
+date.** `runningBalance` in `src/services/summary.ts` sums every settled
+payment, income minus expense, up to a cutoff — so a bill due August 30 but
+paid September 2 spends September's balance, which is when the money actually
+left. A month view's own totals (what's left to pay, what's overdue *this
+month*) stay scoped to the month on screen; only Balance and the "Overdue"
+stat tile are deliberately global, because those two are the ones a person
+expects to be true no matter which month they happen to be looking at.
 
 **Money is integer cents everywhere**, converted to a decimal only to be shown
 or typed. `parseMoney` reads both `1.234,56` and `1,234.56` by looking at the

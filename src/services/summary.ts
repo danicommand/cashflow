@@ -8,7 +8,7 @@
  * off rather than silently rounding to the plan.
  */
 
-import type { Occurrence } from "../types.ts";
+import type { Entry, Occurrence, Payment } from "../types.ts";
 
 export interface MonthSummary {
   /** Everything billed this month, settled or not. */
@@ -154,4 +154,42 @@ export function totalsByCategory(occurrences: Occurrence[]): CategoryTotal[] {
       share: grandTotal > 0 ? bucket.total / grandTotal : 0,
     }))
     .toSorted((a, b) => b.total - a.total);
+}
+
+/**
+ * The running cash balance: every settled payment ever made, income minus
+ * expense, up to and including `throughDate` — regardless of which month its
+ * bill was due in.
+ *
+ * This is deliberately not derived from a month's occurrences. A month view
+ * only shows the bills *due* in that month, but money moves on the day it was
+ * actually paid, which can land in a different month (a bill due August 30,
+ * settled September 2, spends September's cash, not August's). Keying off
+ * `payment.paidOn` instead of the occurrence's due date is what makes this a
+ * real running balance rather than the same per-month total renamed.
+ *
+ * `paidOn` is a plain string, so the comparison is exact only when both sides
+ * are `YYYY-MM-DD` — which every date in this app already is.
+ */
+export function runningBalance(
+  entries: Entry[],
+  payments: Payment[],
+  throughDate: string,
+): number {
+  const kindOf = new Map<string, Entry["kind"]>();
+  for (const entry of entries) {
+    if (!entry.deletedAt) kindOf.set(entry.id, entry.kind);
+  }
+
+  let total = 0;
+  for (const payment of payments) {
+    if (payment.deletedAt) continue;
+    if (payment.paidOn > throughDate) continue;
+    const kind = kindOf.get(payment.entryId);
+    // A payment whose entry is gone is not counted — the same rule
+    // `pruneLedger` uses when it drops those payments outright.
+    if (!kind) continue;
+    total += kind === "income" ? payment.amount : -payment.amount;
+  }
+  return total;
 }

@@ -1,7 +1,38 @@
 import { describe, expect, it } from "vitest";
 
 import type { Entry, Occurrence, Payment } from "../types.ts";
-import { paidProgress, summarise, totalsByCategory, totalsByDay } from "./summary.ts";
+import { paidProgress, runningBalance, summarise, totalsByCategory, totalsByDay } from "./summary.ts";
+
+function ledgerEntry(overrides: Partial<Entry> = {}): Entry {
+  return {
+    id: "e1",
+    kind: "expense",
+    description: "Bill",
+    amount: 10_000,
+    dueDate: "2026-01-10",
+    repeat: "none",
+    repeatCount: null,
+    category: "",
+    note: "",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+    deletedAt: null,
+    ...overrides,
+  };
+}
+
+function ledgerPayment(overrides: Partial<Payment> = {}): Payment {
+  return {
+    id: "e1|2026-01-10",
+    entryId: "e1",
+    occurrence: "2026-01-10",
+    paidOn: "2026-01-10",
+    amount: 10_000,
+    updatedAt: "2026-01-10T00:00:00.000Z",
+    deletedAt: null,
+    ...overrides,
+  };
+}
 
 function occurrence(
   overrides: Partial<Entry> & { date?: string; paid?: Partial<Payment> | null } = {},
@@ -184,5 +215,75 @@ describe("totalsByCategory", () => {
       occurrence({ id: "a", category: "Pay", amount: 500_000, kind: "income" }),
     ]);
     expect(buckets).toEqual([]);
+  });
+});
+
+describe("runningBalance", () => {
+  it("is zero with nothing settled", () => {
+    expect(runningBalance([ledgerEntry()], [], "2026-01-31")).toBe(0);
+  });
+
+  it("carries a surplus from one month into the next", () => {
+    // This is the whole point: a balance that only looked at one month's
+    // occurrences would forget August's leftover the moment September opens.
+    const entries = [
+      ledgerEntry({ id: "salary", kind: "income" }),
+      ledgerEntry({ id: "rent" }),
+    ];
+    const payments = [
+      ledgerPayment({ id: "p1", entryId: "salary", paidOn: "2026-08-05", amount: 300_000 }),
+      ledgerPayment({ id: "p2", entryId: "rent", paidOn: "2026-08-05", amount: 120_000 }),
+    ];
+    expect(runningBalance(entries, payments, "2026-08-31")).toBe(180_000);
+    // September has no payments of its own yet; the surplus is still there.
+    expect(runningBalance(entries, payments, "2026-09-30")).toBe(180_000);
+  });
+
+  it("keys off when money actually moved, not the bill's due date", () => {
+    // A bill due August 30 but paid September 2 spends September's cash.
+    const entries = [ledgerEntry({ id: "power", dueDate: "2026-08-30" })];
+    const payments = [
+      ledgerPayment({ id: "p1", entryId: "power", occurrence: "2026-08-30", paidOn: "2026-09-02", amount: 8_000 }),
+    ];
+    expect(runningBalance(entries, payments, "2026-08-31")).toBe(0);
+    expect(runningBalance(entries, payments, "2026-09-30")).toBe(-8_000);
+  });
+
+  it("includes a payment made exactly on the cutoff date, not just before it", () => {
+    const entries = [ledgerEntry({ id: "power" })];
+    const payments = [ledgerPayment({ entryId: "power", paidOn: "2026-01-15", amount: 5_000 })];
+    expect(runningBalance(entries, payments, "2026-01-14")).toBe(0);
+    expect(runningBalance(entries, payments, "2026-01-15")).toBe(-5_000);
+  });
+
+  it("ignores a deleted payment", () => {
+    const entries = [ledgerEntry({ id: "power" })];
+    const payments = [
+      ledgerPayment({ entryId: "power", amount: 5_000, deletedAt: "2026-01-11T00:00:00.000Z" }),
+    ];
+    expect(runningBalance(entries, payments, "2026-01-31")).toBe(0);
+  });
+
+  it("ignores a payment left behind by a deleted entry", () => {
+    const entries = [ledgerEntry({ id: "power", deletedAt: "2026-01-11T00:00:00.000Z" })];
+    const payments = [ledgerPayment({ entryId: "power", amount: 5_000 })];
+    expect(runningBalance(entries, payments, "2026-01-31")).toBe(0);
+  });
+
+  it("nets several incomes and expenses across different months", () => {
+    const entries = [
+      ledgerEntry({ id: "salary", kind: "income" }),
+      ledgerEntry({ id: "rent" }),
+      ledgerEntry({ id: "power" }),
+    ];
+    const payments = [
+      ledgerPayment({ id: "p1", entryId: "salary", paidOn: "2026-08-05", amount: 300_000 }),
+      ledgerPayment({ id: "p2", entryId: "rent", paidOn: "2026-08-06", amount: 120_000 }),
+      ledgerPayment({ id: "p3", entryId: "salary", paidOn: "2026-09-05", amount: 300_000 }),
+      ledgerPayment({ id: "p4", entryId: "rent", paidOn: "2026-09-06", amount: 120_000 }),
+      ledgerPayment({ id: "p5", entryId: "power", paidOn: "2026-09-10", amount: 15_000 }),
+    ];
+    expect(runningBalance(entries, payments, "2026-08-31")).toBe(180_000);
+    expect(runningBalance(entries, payments, "2026-09-30")).toBe(180_000 + 300_000 - 120_000 - 15_000);
   });
 });

@@ -6,6 +6,7 @@ import { formatMoney } from "../services/money.ts";
 import { paidProgress, summarise, totalsByCategory } from "../services/summary.ts";
 import { AnimatedMoney } from "./AnimatedMoney.tsx";
 import { OccurrenceRow } from "./OccurrenceRow.tsx";
+import { UpcomingPanel } from "./UpcomingPanel.tsx";
 
 interface MonthViewProps {
   occurrences: Occurrence[];
@@ -15,8 +16,19 @@ interface MonthViewProps {
   t: Translator;
   /** Milliseconds the total holds before rolling, so it catches an arrival. */
   catchDelay: number;
+  /** The running cash balance through the end of this month, all months included. */
+  balance: number;
+  /** The slice of `balance` carried in from before this month started. */
+  carriedIn: number;
+  /** Every bill overdue anywhere, not only the ones due within this month —
+   * see the note on the stat tile below for why this one figure is global
+   * while its neighbours stay scoped to the displayed month. */
+  globalOverdueTotal: number;
+  /** Overdue and soon-due bills that belong to some other month. */
+  elsewhere: Occurrence[];
   onToggle: (occurrence: Occurrence) => void;
   onOpen: (occurrence: Occurrence) => void;
+  onJumpElsewhere: (occurrence: Occurrence) => void;
 }
 
 /**
@@ -33,8 +45,13 @@ export function MonthView({
   language,
   t,
   catchDelay,
+  balance,
+  carriedIn,
+  globalOverdueTotal,
+  elsewhere,
   onToggle,
   onOpen,
+  onJumpElsewhere,
 }: MonthViewProps) {
   const [showSettled, setShowSettled] = useState(false);
 
@@ -51,9 +68,29 @@ export function MonthView({
 
   if (occurrences.length === 0) {
     return (
-      <div className="empty">
-        <p className="empty-title">{t("summary.empty")}</p>
-        <p className="empty-hint">{t("summary.emptyHint")}</p>
+      <div className="month">
+        <div className="empty">
+          <p className="empty-title">{t("summary.empty")}</p>
+          <p className="empty-hint">{t("summary.emptyHint")}</p>
+          {/* A month with nothing scheduled can still be sitting on money from
+              an earlier one — that balance should not vanish just because this
+              month has no bills of its own. */}
+          {balance !== 0 ? (
+            <p className={`empty-balance${balance < 0 ? " alert" : ""}`}>
+              {t("summary.emptyBalance", { amount: money(balance) })}
+            </p>
+          ) : null}
+        </div>
+        {/* An empty month is exactly when an overdue bill elsewhere is easiest
+            to forget — there is nothing else on screen to compete with it. */}
+        <UpcomingPanel
+          items={elsewhere}
+          today={today}
+          currency={currency}
+          language={language}
+          t={t}
+          onJump={onJumpElsewhere}
+        />
       </div>
     );
   }
@@ -100,10 +137,25 @@ export function MonthView({
         </p>
       </section>
 
+      {/* The two figures that are true no matter which month is on screen —
+          what is overdue, what the balance actually is — sit together on the
+          left; the two that are specific to this month's plan sit together on
+          the right. Grouping them this way is what keeps "Overdue: $0" here
+          from reading as a contradiction of the panel above: it and the panel
+          are answering the same question, this month's own total is not. */}
       <section className="stats" aria-label={t("summary.balance")}>
-        <div className={`stat${summary.overdueTotal > 0 ? " alert" : ""}`}>
+        <div className={`stat${globalOverdueTotal > 0 ? " alert" : ""}`}>
           <span className="stat-label">{t("summary.overdue")}</span>
-          <span className="stat-value">{money(summary.overdueTotal)}</span>
+          <span className="stat-value">{money(globalOverdueTotal)}</span>
+        </div>
+        <div className={`stat${balance < 0 ? " alert" : " good"}`}>
+          <span className="stat-label">{t("summary.balance")}</span>
+          <span className="stat-value">{money(balance)}</span>
+          <span className="stat-hint">
+            {carriedIn !== 0
+              ? t("summary.balanceCarried", { amount: money(carriedIn) })
+              : t("summary.balanceHint")}
+          </span>
         </div>
         <div className="stat">
           <span className="stat-label">{t("summary.dueLater")}</span>
@@ -113,12 +165,16 @@ export function MonthView({
           <span className="stat-label">{t("summary.received")}</span>
           <span className="stat-value">{money(summary.receivedTotal)}</span>
         </div>
-        <div className={`stat${summary.netActual < 0 ? " alert" : " good"}`}>
-          <span className="stat-label">{t("summary.balance")}</span>
-          <span className="stat-value">{money(summary.netActual)}</span>
-          <span className="stat-hint">{t("summary.balanceHint")}</span>
-        </div>
       </section>
+
+      <UpcomingPanel
+        items={elsewhere}
+        today={today}
+        currency={currency}
+        language={language}
+        t={t}
+        onJump={onJumpElsewhere}
+      />
 
       {expenses.length > 0 ? (
         <section className="list-section">

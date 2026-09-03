@@ -30,7 +30,9 @@ const en = {
   "summary.received": "Received",
   "summary.expected": "Expected",
   "summary.balance": "Balance",
-  "summary.balanceHint": "Received minus paid, so far",
+  "summary.balanceHint": "All-time: income minus expenses",
+  "summary.balanceCarried": "{amount} carried in from before",
+  "summary.emptyBalance": "Balance: {amount}",
   "summary.allPaid": "Everything for this month is settled.",
   "summary.empty": "Nothing logged for this month yet.",
   "summary.emptyHint": "Add a bill or an amount you received to get started.",
@@ -110,6 +112,8 @@ const en = {
   "categories.title": "Where it goes",
   "categories.uncategorised": "Uncategorised",
 
+  "elsewhere.title": "Not this month",
+
   "settings.appearance": "Appearance",
   "settings.language": "Language",
   "settings.currency": "Currency",
@@ -173,7 +177,9 @@ const pt: Record<TranslationKey, string> = {
   "summary.received": "Recebido",
   "summary.expected": "Previsto",
   "summary.balance": "Saldo",
-  "summary.balanceHint": "Recebido menos pago, até agora",
+  "summary.balanceHint": "No total: receitas menos despesas",
+  "summary.balanceCarried": "{amount} vindos de antes",
+  "summary.emptyBalance": "Saldo: {amount}",
   "summary.allPaid": "Tudo deste mês está quitado.",
   "summary.empty": "Nada lançado neste mês ainda.",
   "summary.emptyHint": "Lance uma conta ou um valor recebido para começar.",
@@ -252,6 +258,8 @@ const pt: Record<TranslationKey, string> = {
 
   "categories.title": "Para onde vai",
   "categories.uncategorised": "Sem categoria",
+
+  "elsewhere.title": "Fora deste mês",
 
   "settings.appearance": "Aparência",
   "settings.language": "Idioma",

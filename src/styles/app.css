@@ -649,6 +649,38 @@ svg {
   background-size: 100% 1px;
 }
 
+/* A cross-month row: one button standing in for the tick + row-main pair,
+   since there is nothing here to settle — only somewhere else to look. It
+   fills the li's existing padding rather than adding its own, so it lines up
+   with every other list on the page. */
+.upcoming-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.upcoming-row .row-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.upcoming-row .mark {
+  flex: none;
+  width: 7px;
+  height: 7px;
+}
+
 /* ------------------------------------------------------------------- bars -- */
 
 .bars {
@@ -849,6 +881,23 @@ svg {
   font-size: 14px;
 }
 
+.empty-balance {
+  display: inline-block;
+  margin: 18px auto 0;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: var(--good-soft);
+  color: var(--good);
+  font-size: 13.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.empty-balance.alert {
+  background: var(--alert-soft);
+  color: var(--alert);
+}
+
 /* ----------------------------------------------------------------- forms -- */
 
 .form {
@@ -929,6 +978,18 @@ svg {
 .inline-field {
   display: flex;
   gap: 8px;
+}
+
+.inline-field input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The input is what should give way on a narrow screen — a button that wraps
+   its own label to a second line reads as broken, not as responsive. */
+.inline-field .button {
+  flex: none;
+  white-space: nowrap;
 }
 
 .checkbox {
@@ -1639,7 +1700,8 @@ svg {
 .fab {
   transition:
     transform 260ms var(--ease-arrive),
-    box-shadow 260ms var(--ease-arrive);
+    box-shadow 260ms var(--ease-arrive),
+    opacity 200ms var(--ease-arrive);
 }
 
 .fab:hover {
@@ -1648,6 +1710,16 @@ svg {
 
 .fab:active {
   transform: scale(0.94) rotate(90deg);
+}
+
+/* Stepping out of the way while a long list scrolls past underneath it,
+   rather than sitting fixed on top of whichever row happens to land there —
+   a bill's amount is the one thing on the page that should never be the part
+   a floating button covers. */
+.fab.fab-hidden {
+  transform: translate3d(0, 20px, 0) scale(0.9);
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* An error arrives in response to a press, so it pushes in and settles rather
@@ -1753,6 +1825,12 @@ svg {
   .tab:active,
   .tick:active,
   .cell:not(.blank):hover {
+    transform: none;
+  }
+
+  /* Still steps out of the way — that is a functional overlap fix, not
+     decoration — but it fades rather than slides. */
+  .fab.fab-hidden {
     transform: none;
   }
 }
