@@ -7,7 +7,7 @@
  * unable to tell which version is newer.
  */
 
-import type { Entry, EntryKind, Ledger, Payment, Repeat, Skip } from "../types.ts";
+import type { BillPriority, Entry, EntryKind, Ledger, Payment, Repeat, Skip } from "../types.ts";
 import { occurrenceKey } from "./occurrences.ts";
 
 export function newId(): string {
@@ -24,6 +24,7 @@ export interface EntryDraft {
   repeatCount: number | null;
   category: string;
   note: string;
+  priority?: BillPriority;
 }
 
 export function blankDraft(kind: EntryKind, dueDate: string): EntryDraft {
@@ -36,6 +37,7 @@ export function blankDraft(kind: EntryKind, dueDate: string): EntryDraft {
     repeatCount: null,
     category: "",
     note: "",
+    priority: kind === "expense" ? "important" : undefined,
   };
 }
 
@@ -49,6 +51,7 @@ export function draftFrom(entry: Entry): EntryDraft {
     repeatCount: entry.repeatCount,
     category: entry.category,
     note: entry.note,
+    priority: entry.priority ?? "important",
   };
 }
 
@@ -62,6 +65,7 @@ function normalise(draft: EntryDraft): EntryDraft {
     // stale count survive a switch back to "one time" would silently cap a
     // later switch back to monthly.
     repeatCount: draft.repeat === "none" ? null : draft.repeatCount,
+    priority: draft.kind === "expense" ? (draft.priority ?? "important") : undefined,
   };
 }
 

@@ -3,6 +3,7 @@ import type { CurrencyCode, Entry, Language, Occurrence } from "../types.ts";
 import { categoryColorIndex } from "../services/categoryColor.ts";
 import { describeDueDate, formatDate } from "../services/formats.ts";
 import { formatMoney } from "../services/money.ts";
+import { priorityOf } from "../services/paymentPlan.ts";
 
 interface OccurrenceRowProps {
   occurrence: Occurrence;
@@ -37,6 +38,7 @@ export function OccurrenceRow({
   const isIncome = occurrence.entry.kind === "income";
   const overdue = !settled && !skipped && !isIncome && occurrence.date < today;
   const shown = occurrence.payment?.amount ?? occurrence.amount;
+  const priority = priorityOf(occurrence.entry);
 
   const instalment =
     occurrence.entry.repeatCount !== null && occurrence.entry.repeatCount > 1
@@ -105,6 +107,11 @@ export function OccurrenceRow({
             </span>
           ) : null}
           {instalment ? <span className="chip subtle">{instalment}</span> : null}
+          {!isIncome ? (
+            <span className={`chip priority priority-${priority}`}>
+              {t(`priority.${priority}`)}
+            </span>
+          ) : null}
         </span>
       </button>
 

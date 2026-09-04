@@ -303,6 +303,17 @@ describe("sanitiseLedger", () => {
     expect(result.entries[0].repeat).toBe("none");
   });
 
+  it("keeps known priorities and defaults unknown priorities to important", () => {
+    const result = sanitiseLedger({
+      entries: [
+        { ...entry(), id: "essential", priority: "essential" },
+        { ...entry(), id: "unknown", priority: "emergency" },
+      ],
+      payments: [],
+    });
+    expect(result.entries.map((record) => record.priority)).toEqual(["essential", "important"]);
+  });
+
   it("caps long text so one row cannot blow up the payload", () => {
     const result = sanitiseLedger({
       entries: [{ ...entry(), description: "x".repeat(10_000) }],

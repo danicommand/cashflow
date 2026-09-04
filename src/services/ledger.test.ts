@@ -32,6 +32,16 @@ function draft(overrides: Partial<EntryDraft> = {}): EntryDraft {
 const EMPTY: Ledger = { entries: [], payments: [], budgets: [], skips: [] };
 
 describe("addEntry", () => {
+  it("defaults a new expense to important priority", () => {
+    const ledger = addEntry(EMPTY, draft(), NOW);
+    expect(ledger.entries[0].priority).toBe("important");
+  });
+
+  it("stores a chosen bill priority", () => {
+    const ledger = addEntry(EMPTY, draft({ priority: "essential" }), NOW);
+    expect(ledger.entries[0].priority).toBe("essential");
+  });
+
   it("stores the entry with matching timestamps", () => {
     const ledger = addEntry(EMPTY, draft(), NOW);
     expect(ledger.entries).toHaveLength(1);

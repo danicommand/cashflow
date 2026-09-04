@@ -599,6 +599,88 @@ svg {
 
 /* ------------------------------------------------------------------ lists -- */
 
+.pay-plan {
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.pay-plan-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.pay-plan-head h2 { margin: 0; font-size: 15px; }
+.pay-plan-head span { color: var(--ink-soft); font-size: 12px; }
+.pay-plan-list { display: grid; gap: 6px; }
+
+.pay-plan-list button {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: var(--radius-small);
+  background: var(--surface-sunken);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.pay-plan-list button:hover { background: var(--accent-soft); }
+
+.pay-plan-rank {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.pay-plan-copy { min-width: 0; }
+.pay-plan-copy strong,
+.pay-plan-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pay-plan-copy strong { font-size: 14px; font-weight: 600; }
+.pay-plan-copy small { margin-top: 1px; color: var(--ink-soft); font-size: 11.5px; }
+.pay-plan-amount { font-size: 13.5px; font-weight: 650; font-variant-numeric: tabular-nums; }
+
+.list-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+
+.filter-chips { display: flex; gap: 5px; overflow-x: auto; }
+
+.filter-chips button {
+  flex: none;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.filter-chips button.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.sort-control { display: flex; align-items: center; gap: 6px; color: var(--ink-soft); font-size: 12px; }
+.sort-control select { max-width: 142px; padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--radius-small); background: var(--surface); color: var(--ink); }
+
 .list-section {
   margin-top: 26px;
 }
@@ -663,6 +745,16 @@ svg {
 
 .row:first-child {
   border-top: 0;
+}
+
+.rows.compact .row {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.rows.compact .tick {
+  width: 26px;
+  height: 26px;
 }
 
 .tick {
@@ -796,6 +888,20 @@ svg {
 .chip.subtle {
   background: transparent;
   border: 1px solid var(--line);
+}
+
+.chip.priority {
+  border: 1px solid var(--line);
+  background: transparent;
+}
+
+.chip.priority-essential {
+  border-color: color-mix(in srgb, var(--alert) 35%, var(--line));
+  color: var(--alert);
+}
+
+.chip.priority-flexible {
+  color: var(--ink-faint);
 }
 
 .row-amount {
@@ -1387,6 +1493,30 @@ svg {
   font-size: 13.5px;
 }
 
+.metric-preferences {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  overflow: hidden;
+}
+
+.metric-preference {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 48px;
+  padding: 6px 8px 6px 12px;
+  border-top: 1px solid var(--line);
+}
+
+.metric-preference:first-child { border-top: 0; }
+.metric-preference label,
+.preference-check { display: flex; align-items: center; gap: 9px; font-size: 14px; }
+.metric-move { display: flex; gap: 2px; }
+.icon-button.small { width: 34px; height: 34px; }
+.icon-button.small svg { width: 16px; height: 16px; }
+.preference-check + .preference-check { margin-top: 12px; }
+
 .empty {
   padding: 48px 20px;
   text-align: center;
@@ -1708,6 +1838,15 @@ svg {
   .row {
     gap: 8px;
     padding-right: 6px;
+  }
+
+  .list-tools {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .sort-control {
+    justify-content: space-between;
   }
 }
 

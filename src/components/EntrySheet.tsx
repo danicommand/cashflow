@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import type { Translator } from "../i18n.ts";
-import type { CurrencyCode, EntryKind, Language, Repeat } from "../types.ts";
+import type { BillPriority, CurrencyCode, EntryKind, Language, Repeat } from "../types.ts";
 import { isIsoDate } from "../services/dates.ts";
 import { centsToInput, currencySymbol, formatMoney, parseMoney } from "../services/money.ts";
 import type { EntryDraft } from "../services/ledger.ts";
@@ -60,6 +60,7 @@ export function EntrySheet({
   const [repeatCount, setRepeatCount] = useState(String(draft.repeatCount ?? 12));
   const [category, setCategory] = useState(draft.category);
   const [note, setNote] = useState(draft.note);
+  const [priority, setPriority] = useState<BillPriority>(draft.priority ?? "important");
   const [error, setError] = useState<string | null>(null);
 
   const title = isNew
@@ -98,6 +99,7 @@ export function EntrySheet({
           : parsedCount,
       category,
       note,
+      priority: kind === "expense" ? priority : undefined,
     });
   };
 
@@ -273,6 +275,20 @@ export function EntrySheet({
             />
           </label>
         </div>
+
+        {kind === "expense" ? (
+          <label className="field">
+            <span className="field-label">{t("priority.label")}</span>
+            <select
+              value={priority}
+              onChange={(event) => setPriority(event.target.value as BillPriority)}
+            >
+              <option value="essential">{t("priority.essential")}</option>
+              <option value="important">{t("priority.important")}</option>
+              <option value="flexible">{t("priority.flexible")}</option>
+            </select>
+          </label>
+        ) : null}
 
         {error ? (
           <p className="form-error" role="alert">

@@ -175,6 +175,10 @@ function sanitiseEntry(value: unknown): Entry | null {
     repeatCount,
     category: text(value.category),
     note: text(value.note),
+    priority:
+      value.priority === "essential" || value.priority === "flexible"
+        ? value.priority
+        : "important",
     createdAt: timestamp(value.createdAt),
     updatedAt: timestamp(value.updatedAt),
     deletedAt: typeof value.deletedAt === "string" ? value.deletedAt.slice(0, 40) : null,

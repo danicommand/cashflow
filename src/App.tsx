@@ -53,6 +53,7 @@ import { occurrencesInMonth, overdueExpenses, upcomingExpenses } from "./service
 import type { SearchResult } from "./services/search.ts";
 import { runningBalance } from "./services/summary.ts";
 import { spendHistory } from "./services/trend.ts";
+import { reminderKey, remindersDue } from "./services/reminders.ts";
 import { yearSummary } from "./services/yearReview.ts";
 import {
   buildBackup,
@@ -284,6 +285,53 @@ export default function App() {
     window.addEventListener(UPDATE_EVENT, onUpdate);
     return () => window.removeEventListener(UPDATE_EVENT, onUpdate);
   }, [t]);
+
+  useEffect(() => {
+    if (
+      !settings.remindersEnabled ||
+      !("Notification" in window) ||
+      Notification.permission !== "granted"
+    ) {
+      return;
+    }
+    const candidates = [
+      ...overdueExpenses(ledger.entries, ledger.payments, ledger.skips, today),
+      ...upcomingExpenses(
+        ledger.entries,
+        ledger.payments,
+        ledger.skips,
+        today,
+        settings.reminderLeadDays,
+      ),
+    ];
+    for (const occurrence of remindersDue(candidates, today, settings.reminderLeadDays)) {
+      const key = reminderKey(occurrence, today);
+      try {
+        if (window.localStorage.getItem(key)) continue;
+        const notification = new Notification(t("reminder.title"), {
+          body: t("reminder.body", { description: occurrence.entry.description }),
+          tag: occurrence.key,
+        });
+        void notification;
+        window.localStorage.setItem(key, "1");
+      } catch {
+        // Notifications and local storage are both optional enhancements.
+      }
+    }
+  }, [ledger, settings.remindersEnabled, settings.reminderLeadDays, t, today]);
+
+  const enableReminders = async () => {
+    if (!("Notification" in window)) {
+      showToast(t("settings.remindersUnsupported"));
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    if (permission === "granted") {
+      setSettings((current) => ({ ...current, remindersEnabled: true }));
+    } else {
+      showToast(t("settings.remindersDenied"));
+    }
+  };
 
   const toggleOccurrence = (occurrence: Occurrence) => {
     if (occurrence.payment) {
@@ -554,6 +602,13 @@ export default function App() {
               history={history}
               budgets={ledger.budgets}
               priority={settings.dashboardPriority}
+              dashboardOrder={settings.dashboardOrder}
+              hiddenDashboardMetrics={settings.hiddenDashboardMetrics}
+              monthSort={settings.monthSort}
+              monthFilter={settings.monthFilter}
+              showSettledByDefault={settings.showSettledByDefault}
+              compactRows={settings.compactRows}
+              onPreferenceChange={(change) => setSettings((current) => ({ ...current, ...change }))}
               onToggle={toggleOccurrence}
               onOpen={openEditorFor}
               onDelete={removeEntry}
@@ -596,6 +651,7 @@ export default function App() {
               hasLock={lockEnabled}
               onSetLock={setLockHandler}
               onRemoveLock={removeLockHandler}
+              onEnableReminders={() => void enableReminders()}
               t={t}
             />
           ) : null}

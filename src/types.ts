@@ -14,6 +14,9 @@ export type EntryKind = "expense" | "income";
 
 export type Repeat = "none" | "weekly" | "monthly" | "yearly";
 
+export const BILL_PRIORITIES = ["essential", "important", "flexible"] as const;
+export type BillPriority = (typeof BILL_PRIORITIES)[number];
+
 /** Fields every synced record carries, so one merge routine handles both. */
 export interface SyncedRecord {
   id: string;
@@ -38,6 +41,8 @@ export interface Entry extends SyncedRecord {
   repeatCount: number | null;
   category: string;
   note: string;
+  /** Defaults to important when reading entries created before priorities existed. */
+  priority?: BillPriority;
   createdAt: string;
 }
 
@@ -92,6 +97,7 @@ export type ThemePreference = "system" | "light" | "dark";
 
 export const DASHBOARD_PRIORITIES = [
   "leftToPay",
+  "safeToSpend",
   "balance",
   "overdue",
   "dueLater",
@@ -99,6 +105,8 @@ export const DASHBOARD_PRIORITIES = [
 ] as const;
 
 export type DashboardPriority = (typeof DASHBOARD_PRIORITIES)[number];
+export type MonthSort = "smart" | "date" | "amount" | "priority";
+export type MonthFilter = "all" | "overdue" | "essential" | "upcoming";
 
 export interface Settings {
   language: Language;
@@ -108,6 +116,14 @@ export interface Settings {
   syncCode: string;
   /** The metric promoted to the large dashboard figure. */
   dashboardPriority: DashboardPriority;
+  dashboardOrder: DashboardPriority[];
+  hiddenDashboardMetrics: DashboardPriority[];
+  reminderLeadDays: 0 | 1 | 3 | 7;
+  remindersEnabled: boolean;
+  monthSort: MonthSort;
+  monthFilter: MonthFilter;
+  showSettledByDefault: boolean;
+  compactRows: boolean;
 }
 
 /** One dated instance of an entry, produced on the fly for a given month. */

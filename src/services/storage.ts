@@ -11,7 +11,14 @@
  * ledger is small enough that rewriting the blob costs nothing.
  */
 
-import { DASHBOARD_PRIORITIES, type DashboardPriority, type Ledger, type Settings } from "../types.ts";
+import {
+  DASHBOARD_PRIORITIES,
+  type DashboardPriority,
+  type Ledger,
+  type MonthFilter,
+  type MonthSort,
+  type Settings,
+} from "../types.ts";
 import { detectLanguage } from "../i18n.ts";
 import { emptyLedger, sanitiseLedger } from "./merge.ts";
 
@@ -48,6 +55,14 @@ export function defaultSettings(): Settings {
     theme: "system",
     syncCode: "",
     dashboardPriority: "leftToPay",
+    dashboardOrder: [...DASHBOARD_PRIORITIES],
+    hiddenDashboardMetrics: [],
+    reminderLeadDays: 1,
+    remindersEnabled: false,
+    monthSort: "smart",
+    monthFilter: "all",
+    showSettledByDefault: false,
+    compactRows: false,
   };
 }
 
@@ -61,6 +76,25 @@ export function loadSettings(): Settings {
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed !== "object" || parsed === null) return fallback;
     const value = parsed as Partial<Settings>;
+    const order = Array.isArray(value.dashboardOrder)
+      ? value.dashboardOrder.filter(
+          (metric, index, values): metric is DashboardPriority =>
+            DASHBOARD_PRIORITIES.includes(metric as DashboardPriority) &&
+            values.indexOf(metric) === index,
+        )
+      : [];
+    const dashboardOrder = [
+      ...order,
+      ...DASHBOARD_PRIORITIES.filter((metric) => !order.includes(metric)),
+    ];
+    const hiddenDashboardMetrics = Array.isArray(value.hiddenDashboardMetrics)
+      ? value.hiddenDashboardMetrics.filter((metric): metric is DashboardPriority =>
+          DASHBOARD_PRIORITIES.includes(metric as DashboardPriority),
+        )
+      : [];
+    const monthSorts: MonthSort[] = ["smart", "date", "amount", "priority"];
+    const monthFilters: MonthFilter[] = ["all", "overdue", "essential", "upcoming"];
+    const leadDays = value.reminderLeadDays;
     return {
       language: value.language === "pt" ? "pt" : "en",
       currency:
@@ -75,6 +109,18 @@ export function loadSettings(): Settings {
       )
         ? (value.dashboardPriority as DashboardPriority)
         : "leftToPay",
+      dashboardOrder,
+      hiddenDashboardMetrics,
+      reminderLeadDays: leadDays === 0 || leadDays === 3 || leadDays === 7 ? leadDays : 1,
+      remindersEnabled: value.remindersEnabled === true,
+      monthSort: monthSorts.includes(value.monthSort as MonthSort)
+        ? (value.monthSort as MonthSort)
+        : "smart",
+      monthFilter: monthFilters.includes(value.monthFilter as MonthFilter)
+        ? (value.monthFilter as MonthFilter)
+        : "all",
+      showSettledByDefault: value.showSettledByDefault === true,
+      compactRows: value.compactRows === true,
     };
   } catch {
     return fallback;

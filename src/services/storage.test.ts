@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import type { Entry, Ledger } from "../types.ts";
+import type { Entry, Ledger, Settings } from "../types.ts";
 import {
   buildBackup,
   clearLedger,
@@ -22,6 +22,7 @@ function entry(overrides: Partial<Entry> = {}): Entry {
     repeatCount: null,
     category: "Home",
     note: "",
+    priority: "important",
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
     deletedAt: null,
@@ -79,6 +80,14 @@ describe("ledger persistence", () => {
       theme: "dark",
       syncCode: "abcdefgh",
       dashboardPriority: "balance",
+      dashboardOrder: ["balance", "leftToPay", "safeToSpend", "overdue", "dueLater", "received"],
+      hiddenDashboardMetrics: ["received"],
+      reminderLeadDays: 3,
+      remindersEnabled: true,
+      monthSort: "amount",
+      monthFilter: "essential",
+      showSettledByDefault: true,
+      compactRows: true,
     });
     clearLedger();
     expect(loadLedger().entries).toHaveLength(0);
@@ -88,13 +97,21 @@ describe("ledger persistence", () => {
 
 describe("settings persistence", () => {
   it("round-trips settings", () => {
-    const settings = {
+    const settings: Settings = {
       language: "pt",
       currency: "BRL",
       theme: "dark",
       syncCode: "abcdefgh",
       dashboardPriority: "balance",
-    } as const;
+      dashboardOrder: ["balance", "leftToPay", "safeToSpend", "overdue", "dueLater", "received"],
+      hiddenDashboardMetrics: ["received"],
+      reminderLeadDays: 3,
+      remindersEnabled: true,
+      monthSort: "amount",
+      monthFilter: "essential",
+      showSettledByDefault: true,
+      compactRows: true,
+    };
     saveSettings(settings);
     expect(loadSettings()).toEqual(settings);
   });
@@ -110,6 +127,14 @@ describe("settings persistence", () => {
       theme: "system",
       syncCode: "",
       dashboardPriority: "leftToPay",
+      dashboardOrder: ["leftToPay", "safeToSpend", "balance", "overdue", "dueLater", "received"],
+      hiddenDashboardMetrics: [],
+      reminderLeadDays: 1,
+      remindersEnabled: false,
+      monthSort: "smart",
+      monthFilter: "all",
+      showSettledByDefault: false,
+      compactRows: false,
     });
   });
 });

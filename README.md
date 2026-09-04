@@ -18,6 +18,20 @@ English and Portuguese, light and dark, USD / BRL / EUR / GBP.
 - **See the month**: what is left to pay, how much is already paid, what is
   overdue, what is still ahead, what came in, and where the money goes by
   category.
+- **Set each bill's priority** to Essential, Important, or Flexible. Older
+  bills safely default to Important.
+- **Know what to pay next.** A compact planner ranks overdue bills first, then
+  uses your priority and due date. The bill list can also sort by date, amount,
+  or priority and filter to overdue, essential, or upcoming items.
+- **See what is safe to spend** after the open Essential bills in the month are
+  reserved from the running balance.
+- **Customize the dashboard**: choose the headline number, hide supporting
+  cards, and move cards into the order that makes sense to you.
+- **Remember your preferred month view**, including compact rows, the default
+  settled-bill view, sorting, and filters.
+- **Optional due reminders** can notify you on the due date or up to seven days
+  ahead. They are checked when the app opens on that device; they are not a
+  server-side push service.
 - **See your balance carry over.** The Balance tile is a running total —
   income minus expenses across every month you've used the app, not just the
   one on screen — so a surplus in August is still there when September opens.

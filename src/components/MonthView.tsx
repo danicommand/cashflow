@@ -7,12 +7,19 @@ import type {
   DashboardPriority,
   Entry,
   Language,
+  MonthFilter,
+  MonthSort,
   Occurrence,
 } from "../types.ts";
 import { monthBudgets } from "../services/budgets.ts";
 import { categoryColorIndex } from "../services/categoryColor.ts";
 import { formatMoney } from "../services/money.ts";
 import { paidProgress, summarise, totalsByCategory } from "../services/summary.ts";
+import {
+  filterOpenExpenses,
+  safeToSpend,
+  sortOpenExpenses,
+} from "../services/paymentPlan.ts";
 import type { MonthSpend } from "../services/trend.ts";
 import { AnimatedMoney } from "./AnimatedMoney.tsx";
 import { OccurrenceRow } from "./OccurrenceRow.tsx";
@@ -42,6 +49,17 @@ interface MonthViewProps {
   history: MonthSpend[];
   budgets: Budget[];
   priority: DashboardPriority;
+  dashboardOrder?: DashboardPriority[];
+  hiddenDashboardMetrics?: DashboardPriority[];
+  monthSort?: MonthSort;
+  monthFilter?: MonthFilter;
+  showSettledByDefault?: boolean;
+  compactRows?: boolean;
+  onPreferenceChange?: (change: Partial<{
+    monthSort: MonthSort;
+    monthFilter: MonthFilter;
+    showSettledByDefault: boolean;
+  }>) => void;
   onToggle: (occurrence: Occurrence) => void;
   onOpen: (occurrence: Occurrence) => void;
   onDelete: (entry: Entry) => void;
@@ -73,6 +91,13 @@ export function MonthView({
   history,
   budgets,
   priority,
+  dashboardOrder,
+  hiddenDashboardMetrics = [],
+  monthSort = "smart",
+  monthFilter = "all",
+  showSettledByDefault = false,
+  compactRows = false,
+  onPreferenceChange,
   onToggle,
   onOpen,
   onDelete,
@@ -81,7 +106,7 @@ export function MonthView({
   onManageCategory,
   onOpenYearReview,
 }: MonthViewProps) {
-  const [showSettled, setShowSettled] = useState(false);
+  const [showSettled, setShowSettled] = useState(showSettledByDefault);
 
   const summary = useMemo(() => summarise(occurrences, today), [occurrences, today]);
   const categories = useMemo(() => totalsByCategory(occurrences), [occurrences]);
@@ -94,6 +119,12 @@ export function MonthView({
   const expenses = occurrences.filter((item) => item.entry.kind === "expense");
   const incomes = occurrences.filter((item) => item.entry.kind === "income");
   const openExpenses = expenses.filter((item) => !item.payment && !item.skipped);
+  const plannedExpenses = sortOpenExpenses(openExpenses, "smart", today).slice(0, 3);
+  const visibleOpenExpenses = sortOpenExpenses(
+    filterOpenExpenses(openExpenses, monthFilter, today),
+    monthSort,
+    today,
+  );
   // A skipped bill is settled in the sense that matters to this list: there
   // is nothing left to do about it, so it belongs with what is already paid
   // rather than crowding the list of what is still owed.
@@ -109,6 +140,12 @@ export function MonthView({
     hint?: string;
   }[] = [
     { id: "leftToPay", label: t("summary.leftToPay"), value: summary.remainingTotal },
+    {
+      id: "safeToSpend",
+      label: t("summary.safeToSpend"),
+      value: safeToSpend(balance, openExpenses),
+      tone: safeToSpend(balance, openExpenses) < 0 ? "alert" : "good",
+    },
     {
       id: "overdue",
       label: t("summary.overdue"),
@@ -128,8 +165,13 @@ export function MonthView({
     { id: "dueLater", label: t("summary.dueLater"), value: summary.dueLaterTotal },
     { id: "received", label: t("summary.received"), value: summary.receivedTotal },
   ];
+  const orderedMetrics = (dashboardOrder ?? metrics.map((metric) => metric.id))
+    .map((id) => metrics.find((metric) => metric.id === id))
+    .filter((metric): metric is (typeof metrics)[number] => Boolean(metric));
   const heroMetric = metrics.find((metric) => metric.id === priority) ?? metrics[0];
-  const overviewMetrics = metrics.filter((metric) => metric.id !== heroMetric.id);
+  const overviewMetrics = orderedMetrics.filter(
+    (metric) => metric.id !== heroMetric.id && !hiddenDashboardMetrics.includes(metric.id),
+  );
 
   if (occurrences.length === 0) {
     return (
@@ -236,6 +278,27 @@ export function MonthView({
         onJump={onJumpElsewhere}
       />
 
+      {plannedExpenses.length > 0 ? (
+        <section className="pay-plan" aria-label={t("planner.title")}>
+          <header className="pay-plan-head">
+            <h2>{t("planner.title")}</h2>
+            <span>{t("planner.hint")}</span>
+          </header>
+          <div className="pay-plan-list">
+            {plannedExpenses.map((item, index) => (
+              <button key={item.key} type="button" onClick={() => onOpen(item)}>
+                <span className="pay-plan-rank">{index + 1}</span>
+                <span className="pay-plan-copy">
+                  <strong>{item.entry.description}</strong>
+                  <small>{t(`priority.${item.entry.priority ?? "important"}`)}</small>
+                </span>
+                <span className="pay-plan-amount">{money(item.amount)}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       {expenses.length > 0 ? (
         <section className="list-section">
           <header className="list-head">
@@ -244,14 +307,50 @@ export function MonthView({
               <button
                 type="button"
                 className="link-button"
-                onClick={() => setShowSettled((current) => !current)}
+                onClick={() => {
+                  setShowSettled((current) => {
+                    onPreferenceChange?.({ showSettledByDefault: !current });
+                    return !current;
+                  });
+                }}
               >
                 {showSettled ? t("list.hidePaid") : t("list.showPaid")}
               </button>
             ) : null}
           </header>
-          <ul className="rows">
-            {openExpenses.map((occurrence) => (
+          {openExpenses.length > 0 ? (
+            <div className="list-tools">
+              <div className="filter-chips" role="group" aria-label={t("filter.label")}>
+                {(["all", "overdue", "essential", "upcoming"] as MonthFilter[]).map((filter) => (
+                  <button
+                    key={filter}
+                    type="button"
+                    className={monthFilter === filter ? "active" : ""}
+                    aria-pressed={monthFilter === filter}
+                    onClick={() => onPreferenceChange?.({ monthFilter: filter })}
+                  >
+                    {t(`filter.${filter}`)}
+                  </button>
+                ))}
+              </div>
+              <label className="sort-control">
+                <span>{t("sort.label")}</span>
+                <select
+                  value={monthSort}
+                  onChange={(event) =>
+                    onPreferenceChange?.({ monthSort: event.target.value as MonthSort })
+                  }
+                >
+                  <option value="smart">{t("sort.smart")}</option>
+                  <option value="date">{t("sort.date")}</option>
+                  <option value="amount">{t("sort.amount")}</option>
+                  <option value="priority">{t("sort.priority")}</option>
+                </select>
+              </label>
+            </div>
+          ) : null}
+          <ul className={`rows${compactRows ? " compact" : ""}`}>
+            {visibleOpenExpenses.map((occurrence) => (
               <OccurrenceRow
                 key={occurrence.key}
                 occurrence={occurrence}
@@ -280,7 +379,7 @@ export function MonthView({
                 ))
               : null}
           </ul>
-          {openExpenses.length === 0 && !showSettled ? (
+          {visibleOpenExpenses.length === 0 && !showSettled ? (
             <p className="list-empty">{t("summary.allPaid")}</p>
           ) : null}
         </section>
