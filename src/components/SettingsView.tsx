@@ -14,6 +14,8 @@ import { formatTime } from "../services/formats.ts";
 import { generateSyncCode, isUsableCode } from "../services/syncClient.ts";
 import { MIN_PIN_LENGTH } from "../services/lock.ts";
 import type { SyncStatus } from "../hooks/useSync.ts";
+import { reorderDashboardMetrics } from "../services/dashboardPreferences.ts";
+import { haptic, runViewTransition } from "../motion/interactions.ts";
 
 interface SettingsViewProps {
   settings: Settings;
@@ -71,6 +73,7 @@ export function SettingsView({
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [lockError, setLockError] = useState<string | null>(null);
+  const [draggedMetric, setDraggedMetric] = useState<DashboardPriority | null>(null);
 
   const codeReady = isUsableCode(code);
   const connected = settings.syncCode.length > 0;
@@ -187,10 +190,29 @@ export function SettingsView({
                 dashboardOrder[target],
                 dashboardOrder[index],
               ];
-              onChange({ ...settings, dashboardOrder });
+              runViewTransition(() => onChange({ ...settings, dashboardOrder }));
+              haptic("select");
             };
             return (
-              <div className="metric-preference" key={metric}>
+              <div
+                className={`metric-preference${draggedMetric === metric ? " dragging" : ""}`}
+                key={metric}
+                draggable
+                onDragStart={() => setDraggedMetric(metric)}
+                onDragEnd={() => setDraggedMetric(null)}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={() => {
+                  if (!draggedMetric) return;
+                  const dashboardOrder = reorderDashboardMetrics(
+                    settings.dashboardOrder,
+                    draggedMetric,
+                    metric,
+                  );
+                  runViewTransition(() => onChange({ ...settings, dashboardOrder }));
+                  setDraggedMetric(null);
+                  haptic("select");
+                }}
+              >
                 <label>
                   <input
                     type="checkbox"

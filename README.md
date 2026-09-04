@@ -24,9 +24,13 @@ English and Portuguese, light and dark, USD / BRL / EUR / GBP.
   uses your priority and due date. The bill list can also sort by date, amount,
   or priority and filter to overdue, essential, or upcoming items.
 - **See what is safe to spend** after the open Essential bills in the month are
-  reserved from the running balance.
+  reserved from the running balance, with an expandable explanation of the
+  calculation.
+- **Preview the month's cash runway** as a compact projected-balance line, with
+  the lowest expected balance called out before it becomes a surprise.
 - **Customize the dashboard**: choose the headline number, hide supporting
-  cards, and move cards into the order that makes sense to you.
+  cards, and move cards into the order that makes sense to you with buttons or
+  drag and drop.
 - **Remember your preferred month view**, including compact rows, the default
   settled-bill view, sorting, and filters.
 - **Optional due reminders** can notify you on the due date or up to seven days
@@ -39,7 +43,7 @@ English and Portuguese, light and dark, USD / BRL / EUR / GBP.
   surfaces anything overdue or due in the next two weeks that belongs to a
   different month than the one you're looking at, with one tap to jump there.
 - **See the calendar**: which days the bills land on, with the unpaid total
-  under each date.
+  under each date and stronger visual pressure for essential or overdue bills.
 - **See recent months compared**, as a small chart of what was actually paid
   each month — tap a bar to jump straight to that month.
 - **Delete without a confirm dialog.** Removing a bill is instant and

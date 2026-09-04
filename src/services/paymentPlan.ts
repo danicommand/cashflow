@@ -62,3 +62,13 @@ export function safeToSpend(balance: number, occurrences: Occurrence[]): number 
       .reduce((total, item) => total + item.amount, 0)
   );
 }
+
+export function calendarPressure(occurrences: Occurrence[], today: string): 0 | 1 | 2 | 3 {
+  const open = occurrences.filter(
+    (item) => item.entry.kind === "expense" && !item.payment && !item.skipped,
+  );
+  if (open.length === 0) return 0;
+  if (open.some((item) => item.date < today || priorityOf(item.entry) === "essential")) return 3;
+  if (open.some((item) => priorityOf(item.entry) === "important")) return 2;
+  return 1;
+}

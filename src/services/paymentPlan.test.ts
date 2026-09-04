@@ -5,6 +5,7 @@ import {
   filterOpenExpenses,
   priorityOf,
   safeToSpend,
+  calendarPressure,
   sortOpenExpenses,
 } from "./paymentPlan.ts";
 
@@ -77,5 +78,11 @@ describe("payment planning", () => {
 
   it("subtracts only open essential bills from the settled balance", () => {
     expect(safeToSpend(1_000_00, items)).toBe(800_00);
+  });
+
+  it("gives essential and overdue dates the strongest calendar pressure", () => {
+    expect(calendarPressure([items[0]], "2026-09-04")).toBe(3);
+    expect(calendarPressure([items[1]], "2026-09-04")).toBe(3);
+    expect(calendarPressure([items[2]], "2026-09-04")).toBe(2);
   });
 });

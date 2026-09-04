@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 import type { Translator } from "../i18n.ts";
 import type { CurrencyCode, Entry, Language, Occurrence } from "../types.ts";
 import { categoryColorIndex } from "../services/categoryColor.ts";
@@ -78,6 +80,11 @@ export function OccurrenceRow({
         .filter(Boolean)
         .join(" ")}
       data-occurrence={occurrence.key}
+      style={
+        {
+          viewTransitionName: `bill-${occurrence.key.replace(/[^a-zA-Z0-9_-]/g, "-")}`,
+        } as CSSProperties
+      }
     >
       <button
         type="button"

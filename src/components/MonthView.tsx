@@ -25,6 +25,7 @@ import { AnimatedMoney } from "./AnimatedMoney.tsx";
 import { OccurrenceRow } from "./OccurrenceRow.tsx";
 import { TrendChart } from "./TrendChart.tsx";
 import { UpcomingPanel } from "./UpcomingPanel.tsx";
+import { CashRunway } from "./CashRunway.tsx";
 
 interface MonthViewProps {
   month: string;
@@ -131,6 +132,8 @@ export function MonthView({
   const settledExpenses = expenses.filter((item) => item.payment || item.skipped);
 
   const money = (cents: number) => formatMoney(cents, currency, language);
+  const safeAmount = safeToSpend(balance, openExpenses);
+  const reservedEssentials = balance - safeAmount;
 
   const metrics: {
     id: DashboardPriority;
@@ -143,8 +146,8 @@ export function MonthView({
     {
       id: "safeToSpend",
       label: t("summary.safeToSpend"),
-      value: safeToSpend(balance, openExpenses),
-      tone: safeToSpend(balance, openExpenses) < 0 ? "alert" : "good",
+      value: safeAmount,
+      tone: safeAmount < 0 ? "alert" : "good",
     },
     {
       id: "overdue",
@@ -255,6 +258,13 @@ export function MonthView({
                 total: money(summary.expenseTotal),
               })}
         </p>
+        {heroMetric.id === "safeToSpend" ? (
+          <details className="safe-breakdown">
+            <summary>{t("safeBreakdown.title")}</summary>
+            <span>{t("safeBreakdown.balance", { amount: money(balance) })}</span>
+            <span>{t("safeBreakdown.reserved", { amount: money(reservedEssentials) })}</span>
+          </details>
+        ) : null}
       </section>
 
       <section className="stats" aria-label={t("summary.overview")}>
@@ -268,6 +278,14 @@ export function MonthView({
           </div>
         ))}
       </section>
+
+      <CashRunway
+        carriedIn={carriedIn}
+        occurrences={occurrences}
+        currency={currency}
+        language={language}
+        t={t}
+      />
 
       <UpcomingPanel
         items={elsewhere}

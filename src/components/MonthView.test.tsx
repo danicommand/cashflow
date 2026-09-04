@@ -93,6 +93,7 @@ describe("MonthView dashboard priority", () => {
     );
     expect(within(screen.getByRole("region", { name: "Safe to spend" })).getByText("$400.00"))
       .toBeInTheDocument();
+    expect(screen.getByText("Balance minus reserved essentials")).toBeInTheDocument();
   });
 
   it("respects supporting-card order and visibility", () => {

@@ -13,6 +13,7 @@ import {
 import { formatFullDate, weekdayInitials } from "../services/formats.ts";
 import { formatAmount } from "../services/money.ts";
 import { totalsByDay } from "../services/summary.ts";
+import { calendarPressure } from "../services/paymentPlan.ts";
 import { OccurrenceRow } from "./OccurrenceRow.tsx";
 
 interface CalendarViewProps {
@@ -47,6 +48,15 @@ export function CalendarView({
 }: CalendarViewProps) {
   const { year, month: monthNumber } = parseMonthKey(month);
   const totals = useMemo(() => totalsByDay(occurrences), [occurrences]);
+  const occurrencesByDay = useMemo(() => {
+    const map = new Map<string, Occurrence[]>();
+    for (const occurrence of occurrences) {
+      const items = map.get(occurrence.date) ?? [];
+      items.push(occurrence);
+      map.set(occurrence.date, items);
+    }
+    return map;
+  }, [occurrences]);
 
   // Opening on today keeps the common case one glance rather than one tap;
   // in any other month the first day is the sensible starting point.
@@ -83,11 +93,13 @@ export function CalendarView({
           const day = totals.get(date);
           const isToday = date === today;
           const isSelected = date === selected;
+          const pressure = calendarPressure(occurrencesByDay.get(date) ?? [], today);
           const classes = [
             "cell",
             isToday ? "today" : "",
             isSelected ? "selected" : "",
             day ? "has-items" : "",
+            pressure ? `pressure-${pressure}` : "",
           ]
             .filter(Boolean)
             .join(" ");

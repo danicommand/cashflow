@@ -13,6 +13,7 @@ import { YearReviewSheet } from "./components/YearReviewSheet.tsx";
 import { useFabVisible } from "./hooks/useFabVisible.ts";
 import { useSync } from "./hooks/useSync.ts";
 import { FLIGHT_CATCH_MS, flyToTotal, measureOccurrenceAmount } from "./motion/flight.ts";
+import { haptic, runViewTransition } from "./motion/interactions.ts";
 import { translatorFor } from "./i18n.ts";
 import type { Entry, Ledger, Occurrence, Settings } from "./types.ts";
 import { budgetFor } from "./services/budgets.ts";
@@ -214,7 +215,7 @@ export default function App() {
    * than from how it was asked for. */
   const goToMonth = (target: string) => {
     setMonthStep(target >= month ? "forward" : "back");
-    setMonth(target);
+    runViewTransition(() => setMonth(target));
   };
 
   const stepMonth = (step: number) => goToMonth(shiftMonthKey(month, step));
@@ -351,6 +352,7 @@ export default function App() {
     if (!settling) return;
     setLedger((current) => skipOccurrence(current, settling.entry.id, settling.date));
     setSettling(null);
+    haptic("success");
   };
 
   /**
@@ -367,6 +369,7 @@ export default function App() {
       settleOccurrence(current, occurrence.entry.id, occurrence.date, amount, paidOn),
     );
     setSettling(null);
+    haptic("success");
     if (!origin) return;
     setCatchDelay(FLIGHT_CATCH_MS);
     flyToTotal(origin);
@@ -390,6 +393,7 @@ export default function App() {
     const { id, description } = entry;
     const stamp = new Date();
     setLedger((current) => deleteEntry(current, id, stamp));
+    haptic("delete");
     if (editor?.entry?.id === id) setEditor(null);
     showToast(t("toast.deleted", { description: description || t("form.expense") }), t("action.undo"), () => {
       setLedger((current) => restoreEntry(current, id, stamp.toISOString()));
@@ -527,7 +531,7 @@ export default function App() {
               type="button"
               className={tab === value ? "tab active" : "tab"}
               aria-current={tab === value ? "page" : undefined}
-              onClick={() => setTab(value)}
+              onClick={() => runViewTransition(() => setTab(value))}
             >
               {t(`nav.${value}`)}
             </button>
@@ -608,7 +612,11 @@ export default function App() {
               monthFilter={settings.monthFilter}
               showSettledByDefault={settings.showSettledByDefault}
               compactRows={settings.compactRows}
-              onPreferenceChange={(change) => setSettings((current) => ({ ...current, ...change }))}
+              onPreferenceChange={(change) =>
+                runViewTransition(() =>
+                  setSettings((current) => ({ ...current, ...change })),
+                )
+              }
               onToggle={toggleOccurrence}
               onOpen={openEditorFor}
               onDelete={removeEntry}
