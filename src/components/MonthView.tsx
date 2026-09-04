@@ -1,7 +1,14 @@
 import { useMemo, useState } from "react";
 
 import type { Translator } from "../i18n.ts";
-import type { Budget, CurrencyCode, Language, Occurrence } from "../types.ts";
+import type {
+  Budget,
+  CurrencyCode,
+  DashboardPriority,
+  Entry,
+  Language,
+  Occurrence,
+} from "../types.ts";
 import { monthBudgets } from "../services/budgets.ts";
 import { categoryColorIndex } from "../services/categoryColor.ts";
 import { formatMoney } from "../services/money.ts";
@@ -34,8 +41,10 @@ interface MonthViewProps {
   /** What was actually paid in each of the last several months, oldest first. */
   history: MonthSpend[];
   budgets: Budget[];
+  priority: DashboardPriority;
   onToggle: (occurrence: Occurrence) => void;
   onOpen: (occurrence: Occurrence) => void;
+  onDelete: (entry: Entry) => void;
   onJumpElsewhere: (occurrence: Occurrence) => void;
   onSelectMonth: (month: string) => void;
   onManageCategory: (category: string) => void;
@@ -63,8 +72,10 @@ export function MonthView({
   elsewhere,
   history,
   budgets,
+  priority,
   onToggle,
   onOpen,
+  onDelete,
   onJumpElsewhere,
   onSelectMonth,
   onManageCategory,
@@ -89,6 +100,36 @@ export function MonthView({
   const settledExpenses = expenses.filter((item) => item.payment || item.skipped);
 
   const money = (cents: number) => formatMoney(cents, currency, language);
+
+  const metrics: {
+    id: DashboardPriority;
+    label: string;
+    value: number;
+    tone?: "alert" | "good";
+    hint?: string;
+  }[] = [
+    { id: "leftToPay", label: t("summary.leftToPay"), value: summary.remainingTotal },
+    {
+      id: "overdue",
+      label: t("summary.overdue"),
+      value: globalOverdueTotal,
+      tone: globalOverdueTotal > 0 ? "alert" : undefined,
+    },
+    {
+      id: "balance",
+      label: t("summary.balance"),
+      value: balance,
+      tone: balance < 0 ? "alert" : "good",
+      hint:
+        carriedIn !== 0
+          ? t("summary.balanceCarried", { amount: money(carriedIn) })
+          : t("summary.balanceHint"),
+    },
+    { id: "dueLater", label: t("summary.dueLater"), value: summary.dueLaterTotal },
+    { id: "received", label: t("summary.received"), value: summary.receivedTotal },
+  ];
+  const heroMetric = metrics.find((metric) => metric.id === priority) ?? metrics[0];
+  const overviewMetrics = metrics.filter((metric) => metric.id !== heroMetric.id);
 
   if (occurrences.length === 0) {
     return (
@@ -134,11 +175,11 @@ export function MonthView({
 
   return (
     <div className="month">
-      <section className="hero" aria-label={t("summary.leftToPay")}>
-        <p className="hero-label">{t("summary.leftToPay")}</p>
+      <section className="hero" aria-label={heroMetric.label}>
+        <p className="hero-label">{heroMetric.label}</p>
         <p className="hero-figure" data-total-figure>
           <AnimatedMoney
-            cents={summary.remainingTotal}
+            cents={heroMetric.value}
             currency={currency}
             language={language}
             delay={catchDelay}
@@ -174,42 +215,16 @@ export function MonthView({
         </p>
       </section>
 
-      {/* The two figures that are true no matter which month is on screen —
-          what is overdue, what the balance actually is — sit together on the
-          left; the two that are specific to this month's plan sit together on
-          the right. Grouping them this way is what keeps "Overdue: $0" here
-          from reading as a contradiction of the panel above: it and the panel
-          are answering the same question, this month's own total is not. */}
-      <section className="stats" aria-label={t("summary.balance")}>
-        <div className={`stat${globalOverdueTotal > 0 ? " alert" : ""}`}>
-          <span className="stat-label">{t("summary.overdue")}</span>
-          <span className="stat-value">
-            <AnimatedMoney cents={globalOverdueTotal} currency={currency} language={language} />
-          </span>
-        </div>
-        <div className={`stat${balance < 0 ? " alert" : " good"}`}>
-          <span className="stat-label">{t("summary.balance")}</span>
-          <span className="stat-value">
-            <AnimatedMoney cents={balance} currency={currency} language={language} />
-          </span>
-          <span className="stat-hint">
-            {carriedIn !== 0
-              ? t("summary.balanceCarried", { amount: money(carriedIn) })
-              : t("summary.balanceHint")}
-          </span>
-        </div>
-        <div className="stat">
-          <span className="stat-label">{t("summary.dueLater")}</span>
-          <span className="stat-value">
-            <AnimatedMoney cents={summary.dueLaterTotal} currency={currency} language={language} />
-          </span>
-        </div>
-        <div className="stat">
-          <span className="stat-label">{t("summary.received")}</span>
-          <span className="stat-value">
-            <AnimatedMoney cents={summary.receivedTotal} currency={currency} language={language} />
-          </span>
-        </div>
+      <section className="stats" aria-label={t("summary.overview")}>
+        {overviewMetrics.map((metric) => (
+          <div key={metric.id} className={`stat${metric.tone ? ` ${metric.tone}` : ""}`}>
+            <span className="stat-label">{metric.label}</span>
+            <span className="stat-value">
+              <AnimatedMoney cents={metric.value} currency={currency} language={language} />
+            </span>
+            {metric.hint ? <span className="stat-hint">{metric.hint}</span> : null}
+          </div>
+        ))}
       </section>
 
       <UpcomingPanel
@@ -246,6 +261,7 @@ export function MonthView({
                 t={t}
                 onToggle={onToggle}
                 onOpen={onOpen}
+                onDelete={onDelete}
               />
             ))}
             {showSettled
@@ -259,6 +275,7 @@ export function MonthView({
                     t={t}
                     onToggle={onToggle}
                     onOpen={onOpen}
+                    onDelete={onDelete}
                   />
                 ))
               : null}
@@ -288,6 +305,7 @@ export function MonthView({
                 t={t}
                 onToggle={onToggle}
                 onOpen={onOpen}
+                onDelete={onDelete}
               />
             ))}
           </ul>

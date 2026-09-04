@@ -1,7 +1,7 @@
 import { useMemo, useState, type CSSProperties } from "react";
 
 import type { Translator } from "../i18n.ts";
-import type { CurrencyCode, Language, Occurrence } from "../types.ts";
+import type { CurrencyCode, Entry, Language, Occurrence } from "../types.ts";
 import {
   daysInMonth,
   firstDayOfMonth,
@@ -24,6 +24,7 @@ interface CalendarViewProps {
   t: Translator;
   onToggle: (occurrence: Occurrence) => void;
   onOpen: (occurrence: Occurrence) => void;
+  onDelete: (entry: Entry) => void;
 }
 
 /**
@@ -42,6 +43,7 @@ export function CalendarView({
   t,
   onToggle,
   onOpen,
+  onDelete,
 }: CalendarViewProps) {
   const { year, month: monthNumber } = parseMonthKey(month);
   const totals = useMemo(() => totalsByDay(occurrences), [occurrences]);
@@ -145,6 +147,7 @@ export function CalendarView({
                   t={t}
                   onToggle={onToggle}
                   onOpen={onOpen}
+                  onDelete={onDelete}
                 />
               ))}
             </ul>

@@ -1,7 +1,14 @@
 import { useRef, useState } from "react";
 
 import { LANGUAGES, type Translator } from "../i18n.ts";
-import type { CurrencyCode, Language, Settings, ThemePreference } from "../types.ts";
+import {
+  DASHBOARD_PRIORITIES,
+  type CurrencyCode,
+  type DashboardPriority,
+  type Language,
+  type Settings,
+  type ThemePreference,
+} from "../types.ts";
 import { CURRENCIES, currencySymbol } from "../services/money.ts";
 import { formatTime } from "../services/formats.ts";
 import { generateSyncCode, isUsableCode } from "../services/syncClient.ts";
@@ -30,6 +37,14 @@ const THEMES: { value: ThemePreference; key: "theme.system" | "theme.light" | "t
   { value: "light", key: "theme.light" },
   { value: "dark", key: "theme.dark" },
 ];
+
+const PRIORITY_LABELS: Record<DashboardPriority, Parameters<Translator>[0]> = {
+  leftToPay: "summary.leftToPay",
+  balance: "summary.balance",
+  overdue: "summary.overdue",
+  dueLater: "summary.dueLater",
+  received: "summary.received",
+};
 
 export function SettingsView({
   settings,
@@ -124,6 +139,32 @@ export function SettingsView({
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="field">
+          <label className="field-label" htmlFor="dashboard-priority">
+            {t("settings.dashboardPriority")}
+          </label>
+          <select
+            id="dashboard-priority"
+            aria-describedby="dashboard-priority-hint"
+            value={settings.dashboardPriority}
+            onChange={(event) =>
+              onChange({
+                ...settings,
+                dashboardPriority: event.target.value as DashboardPriority,
+              })
+            }
+          >
+            {DASHBOARD_PRIORITIES.map((priority) => (
+              <option key={priority} value={priority}>
+                {t(PRIORITY_LABELS[priority])}
+              </option>
+            ))}
+          </select>
+          <span className="field-hint" id="dashboard-priority-hint">
+            {t("settings.dashboardPriorityHint")}
+          </span>
         </div>
       </section>
 

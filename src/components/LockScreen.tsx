@@ -50,6 +50,7 @@ export function LockScreen({ t, onUnlock, onReset }: LockScreenProps) {
             autoComplete="off"
             autoFocus
             className="lock-input"
+            aria-label={t("settings.lockPin")}
             value={pin}
             placeholder={t("lock.placeholder")}
             onChange={(event) => {

@@ -1,4 +1,24 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
+
+const FOCUSABLE = "a[href], button, input, select, textarea, [tabindex]";
+
+function focusableElements(panel: HTMLDivElement): HTMLElement[] {
+  return Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+    (element) =>
+      element.tabIndex >= 0 &&
+      !element.hasAttribute("disabled") &&
+      !element.classList.contains("focus-guard"),
+  );
+}
+
+function focusEdge(panel: HTMLDivElement | null, edge: "first" | "last") {
+  const focusable = panel ? focusableElements(panel) : [];
+  if (!focusable.length) {
+    panel?.focus();
+    return;
+  }
+  focusable[edge === "first" ? 0 : focusable.length - 1].focus();
+}
 
 interface SheetProps {
   title: string;
@@ -18,6 +38,25 @@ interface SheetProps {
 export function Sheet({ title, closeLabel, onClose, children, footer }: SheetProps) {
   const panel = useRef<HTMLDivElement>(null);
 
+  const trapFocus = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Tab" || !panel.current) return;
+    const focusable = focusableElements(panel.current);
+    if (!focusable.length) {
+      event.preventDefault();
+      panel.current.focus();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && event.target === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && event.target === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
@@ -25,9 +64,9 @@ export function Sheet({ title, closeLabel, onClose, children, footer }: SheetPro
     document.addEventListener("keydown", onKeyDown);
 
     const previous = document.activeElement as HTMLElement | null;
-    const firstField = panel.current?.querySelector<HTMLElement>(
-      "input, select, textarea, button",
-    );
+    const firstField =
+      panel.current?.querySelector<HTMLElement>("input, select, textarea") ??
+      panel.current?.querySelector<HTMLElement>("button");
     firstField?.focus();
 
     // The page behind must not scroll while a sheet is open, or a phone
@@ -56,7 +95,20 @@ export function Sheet({ title, closeLabel, onClose, children, footer }: SheetPro
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <div className="sheet" role="dialog" aria-modal="true" aria-label={title} ref={panel}>
+      <div
+        className="sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        ref={panel}
+        tabIndex={-1}
+        onKeyDown={trapFocus}
+      >
+        <span
+          className="focus-guard"
+          tabIndex={0}
+          onFocus={() => focusEdge(panel.current, "last")}
+        />
         <header className="sheet-head">
           <h2>{title}</h2>
           <button type="button" className="icon-button" onClick={onClose} aria-label={closeLabel}>
@@ -67,6 +119,11 @@ export function Sheet({ title, closeLabel, onClose, children, footer }: SheetPro
         </header>
         <div className="sheet-body">{children}</div>
         {footer ? <footer className="sheet-foot">{footer}</footer> : null}
+        <span
+          className="focus-guard"
+          tabIndex={0}
+          onFocus={() => focusEdge(panel.current, "first")}
+        />
       </div>
     </div>
   );

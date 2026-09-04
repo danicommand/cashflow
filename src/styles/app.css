@@ -59,16 +59,13 @@
   --gutter: 16px;
   --max-width: 780px;
 
-  /* Motion. One deceleration curve for arrivals, one for departures, and one
-     with a little overshoot reserved for the two moments that have earned it:
-     a bill being ticked off, and the total catching what it was sent. */
+  /* Motion. One deceleration curve for arrivals and authored settles, plus a
+     faster curve for departures. */
   --ease-arrive: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-leave: cubic-bezier(0.4, 0, 1, 1);
-  /* A touch past the target and back — enough to read as something coming to
-     rest, well short of a bounce. Reserved for the two authored moments (a
-     bill being ticked off, the total catching it) and the calendar's dots;
-     everything else decelerates cleanly into place. */
-  --ease-settle: cubic-bezier(0.34, 1.12, 0.5, 1);
+  /* The same exponential ease-out keeps the authored settle moments smooth
+     without introducing bounce or overshoot. */
+  --ease-settle: cubic-bezier(0.16, 1, 0.3, 1);
   --fast: 140ms;
   --normal: 240ms;
   --slow: 420ms;
@@ -809,6 +806,44 @@ svg {
 
 .row-amount.income {
   color: var(--good);
+}
+
+.row-delete {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: -7px -8px -7px 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition:
+    background var(--fast) var(--ease-arrive),
+    color var(--fast) var(--ease-arrive),
+    transform var(--fast) var(--ease-arrive);
+}
+
+.row-delete svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.row-delete:hover {
+  background: var(--alert-soft);
+  color: var(--alert);
+}
+
+.row-delete:active {
+  transform: scale(0.92);
 }
 
 .row.settled .row-title,
@@ -1589,6 +1624,15 @@ svg {
   box-shadow: var(--shadow);
 }
 
+.focus-guard {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
 @media (min-width: 620px) {
   .sheet-backdrop {
     align-items: center;
@@ -1636,7 +1680,12 @@ svg {
 
 @media (max-width: 520px) {
   .topbar {
+    flex-wrap: nowrap;
     padding: 10px 12px;
+  }
+
+  .brand-name {
+    display: none;
   }
 
   .tabs {
@@ -1654,6 +1703,11 @@ svg {
 
   .cell-amount {
     display: none;
+  }
+
+  .row {
+    gap: 8px;
+    padding-right: 6px;
   }
 }
 
@@ -2363,6 +2417,7 @@ svg {
   .segment:active,
   .tab:active,
   .tick:active,
+  .row-delete:active,
   .cell:not(.blank):hover {
     transform: none;
   }

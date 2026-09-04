@@ -73,7 +73,13 @@ describe("ledger persistence", () => {
 
   it("clears the ledger without touching the settings", () => {
     saveLedger(LEDGER);
-    saveSettings({ language: "pt", currency: "BRL", theme: "dark", syncCode: "abcdefgh" });
+    saveSettings({
+      language: "pt",
+      currency: "BRL",
+      theme: "dark",
+      syncCode: "abcdefgh",
+      dashboardPriority: "balance",
+    });
     clearLedger();
     expect(loadLedger().entries).toHaveLength(0);
     expect(loadSettings().language).toBe("pt");
@@ -87,6 +93,7 @@ describe("settings persistence", () => {
       currency: "BRL",
       theme: "dark",
       syncCode: "abcdefgh",
+      dashboardPriority: "balance",
     } as const;
     saveSettings(settings);
     expect(loadSettings()).toEqual(settings);
@@ -102,6 +109,7 @@ describe("settings persistence", () => {
       currency: "USD",
       theme: "system",
       syncCode: "",
+      dashboardPriority: "leftToPay",
     });
   });
 });

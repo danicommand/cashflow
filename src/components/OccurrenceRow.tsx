@@ -1,5 +1,5 @@
 import type { Translator } from "../i18n.ts";
-import type { CurrencyCode, Language, Occurrence } from "../types.ts";
+import type { CurrencyCode, Entry, Language, Occurrence } from "../types.ts";
 import { categoryColorIndex } from "../services/categoryColor.ts";
 import { describeDueDate, formatDate } from "../services/formats.ts";
 import { formatMoney } from "../services/money.ts";
@@ -12,6 +12,7 @@ interface OccurrenceRowProps {
   t: Translator;
   onToggle: (occurrence: Occurrence) => void;
   onOpen: (occurrence: Occurrence) => void;
+  onDelete: (entry: Entry) => void;
 }
 
 /**
@@ -29,6 +30,7 @@ export function OccurrenceRow({
   t,
   onToggle,
   onOpen,
+  onDelete,
 }: OccurrenceRowProps) {
   const settled = occurrence.payment !== null;
   const skipped = occurrence.skipped;
@@ -109,6 +111,17 @@ export function OccurrenceRow({
       <span className={`row-amount${isIncome ? " income" : ""}`} data-row-amount>
         {formatMoney(shown, currency, language)}
       </span>
+
+      <button
+        type="button"
+        className="row-delete"
+        aria-label={t("action.deleteNamed", { description: occurrence.entry.description })}
+        onClick={() => onDelete(occurrence.entry)}
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" />
+        </svg>
+      </button>
     </li>
   );
 }

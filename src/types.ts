@@ -90,12 +90,24 @@ export type CurrencyCode = "USD" | "BRL" | "EUR" | "GBP";
 
 export type ThemePreference = "system" | "light" | "dark";
 
+export const DASHBOARD_PRIORITIES = [
+  "leftToPay",
+  "balance",
+  "overdue",
+  "dueLater",
+  "received",
+] as const;
+
+export type DashboardPriority = (typeof DASHBOARD_PRIORITIES)[number];
+
 export interface Settings {
   language: Language;
   currency: CurrencyCode;
   theme: ThemePreference;
   /** The personal sync code. Empty means sync is off. */
   syncCode: string;
+  /** The metric promoted to the large dashboard figure. */
+  dashboardPriority: DashboardPriority;
 }
 
 /** One dated instance of an entry, produced on the fly for a given month. */

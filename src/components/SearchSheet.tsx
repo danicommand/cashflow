@@ -34,6 +34,7 @@ export function SearchSheet({ entries, currency, language, t, onJump, onClose }:
         <input
           type="text"
           className="search-input"
+          aria-label={t("search.title")}
           value={query}
           placeholder={t("search.placeholder")}
           onChange={(event) => setQuery(event.target.value)}

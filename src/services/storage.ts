@@ -11,7 +11,7 @@
  * ledger is small enough that rewriting the blob costs nothing.
  */
 
-import type { Ledger, Settings } from "../types.ts";
+import { DASHBOARD_PRIORITIES, type DashboardPriority, type Ledger, type Settings } from "../types.ts";
 import { detectLanguage } from "../i18n.ts";
 import { emptyLedger, sanitiseLedger } from "./merge.ts";
 
@@ -47,6 +47,7 @@ export function defaultSettings(): Settings {
     currency: language === "pt" ? "BRL" : "USD",
     theme: "system",
     syncCode: "",
+    dashboardPriority: "leftToPay",
   };
 }
 
@@ -69,6 +70,11 @@ export function loadSettings(): Settings {
       theme:
         value.theme === "light" || value.theme === "dark" ? value.theme : "system",
       syncCode: typeof value.syncCode === "string" ? value.syncCode.slice(0, 120) : "",
+      dashboardPriority: DASHBOARD_PRIORITIES.includes(
+        value.dashboardPriority as DashboardPriority,
+      )
+        ? (value.dashboardPriority as DashboardPriority)
+        : "leftToPay",
     };
   } catch {
     return fallback;

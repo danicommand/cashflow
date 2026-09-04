@@ -338,12 +338,11 @@ export default function App() {
    * the toast that follows is just clearing it — no different in kind from
    * unsettling a bill by tapping its tick again.
    */
-  const removeEntry = () => {
-    if (!editor?.entry) return;
-    const { id, description } = editor.entry;
+  const removeEntry = (entry: Entry) => {
+    const { id, description } = entry;
     const stamp = new Date();
     setLedger((current) => deleteEntry(current, id, stamp));
-    setEditor(null);
+    if (editor?.entry?.id === id) setEditor(null);
     showToast(t("toast.deleted", { description: description || t("form.expense") }), t("action.undo"), () => {
       setLedger((current) => restoreEntry(current, id, stamp.toISOString()));
     });
@@ -554,8 +553,10 @@ export default function App() {
               elsewhere={elsewhere}
               history={history}
               budgets={ledger.budgets}
+              priority={settings.dashboardPriority}
               onToggle={toggleOccurrence}
               onOpen={openEditorFor}
+              onDelete={removeEntry}
               onJumpElsewhere={jumpToOccurrenceMonth}
               onSelectMonth={goToMonth}
               onManageCategory={setManagingCategory}
@@ -573,6 +574,7 @@ export default function App() {
               t={t}
               onToggle={toggleOccurrence}
               onOpen={openEditorFor}
+              onDelete={removeEntry}
             />
           ) : null}
 
@@ -632,7 +634,7 @@ export default function App() {
             editor.entry ? instalmentProgress(editor.entry, ledger.payments) : null
           }
           onSave={saveEntry}
-          onDelete={editor.entry ? removeEntry : undefined}
+          onDelete={editor.entry ? removeEntry.bind(null, editor.entry) : undefined}
           onDuplicate={editor.entry ? duplicateEntry : undefined}
           onClose={() => setEditor(null)}
         />
