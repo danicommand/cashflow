@@ -1658,6 +1658,61 @@ button.row-amount.actionable:focus-visible {
   position: relative;
 }
 
+.calendar-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.calendar-snapshot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 10px;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 11.5px;
+}
+
+.calendar-snapshot strong {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.calendar-toolbar-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 5px;
+}
+
+.calendar-toolbar-actions button {
+  padding: 6px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  color: var(--ink-soft);
+  background: var(--surface);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.calendar-toolbar-actions button:hover:not(:disabled) {
+  color: var(--ink);
+  background: var(--surface-sunken);
+}
+
+.calendar-toolbar-actions button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.calendar-toolbar-actions button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
 .calendar-popover {
   position: absolute;
   z-index: 4;
@@ -1792,6 +1847,42 @@ button.row-amount.actionable:focus-visible {
 
 .calendar-popover-summary strong.negative {
   color: var(--alert);
+}
+
+.calendar-week-summary {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: baseline;
+  gap: 7px;
+  margin: 10px 0;
+  padding: 8px 9px;
+  border-radius: 8px;
+  color: var(--ink-soft);
+  background: var(--surface-sunken);
+  font-size: 10.5px;
+}
+
+.calendar-week-summary small {
+  color: var(--ink-faint);
+  font-size: inherit;
+}
+
+.calendar-week-summary strong {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.calendar-week-summary strong.income {
+  color: var(--good);
+}
+
+.calendar-week-summary strong.negative {
+  color: var(--alert);
+}
+
+.calendar-week-summary span {
+  min-width: 0;
+  text-align: right;
 }
 
 .calendar-popover-rows {

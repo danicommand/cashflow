@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import type { Translator } from "../i18n.ts";
 import type { CurrencyCode, Entry, EntryKind, Language, Occurrence } from "../types.ts";
 import {
+  addDays,
   daysInMonth,
   firstDayOfMonth,
   monthKey,
@@ -78,6 +79,12 @@ export function CalendarView({
   const dates = cells.filter((date): date is string => date !== null);
 
   useEffect(() => {
+    if (selected && monthKey(selected) !== month) {
+      setSelected(monthKey(today) === month ? today : null);
+    }
+  }, [month, selected, today]);
+
+  useEffect(() => {
     if (!selected) return;
 
     const dismissPopover = (event: PointerEvent) => {
@@ -115,9 +122,57 @@ export function CalendarView({
   const popoverSide = selectedColumn < 2 ? "start" : selectedColumn > 4 ? "end" : "middle";
   const popoverDirection = selectedRow > 2 ? "above" : "below";
   const selectedNet = selectedTotals ? selectedTotals.income - selectedTotals.unpaidExpense : 0;
+  const activeDays = totals.size;
+  const scheduledItems = occurrences.filter((occurrence) => !occurrence.skipped).length;
+  const monthDue = [...totals.values()].reduce((totalDue, day) => totalDue + day.unpaidExpense, 0);
+  const nextScheduledDate =
+    dates.find((date) => date >= today && totals.has(date)) ?? dates.find((date) => totals.has(date));
+  const selectedWeekStart = selected ? addDays(selected, -weekdayOf(selected)) : null;
+  const selectedWeekEnd = selectedWeekStart ? addDays(selectedWeekStart, 6) : null;
+  const selectedWeekTotals = occurrences.reduce(
+    (summary, occurrence) => {
+      if (
+        occurrence.skipped ||
+        !selectedWeekStart ||
+        !selectedWeekEnd ||
+        occurrence.date < selectedWeekStart ||
+        occurrence.date > selectedWeekEnd
+      ) {
+        return summary;
+      }
+      if (occurrence.entry.kind === "income") summary.income += occurrence.amount;
+      else if (!occurrence.payment) summary.due += occurrence.amount;
+      return summary;
+    },
+    { due: 0, income: 0 },
+  );
+  const selectedWeekNet = selectedWeekTotals.income - selectedWeekTotals.due;
 
   return (
     <div className="calendar">
+      <div className="calendar-toolbar">
+        <p className="calendar-snapshot" aria-label={t("calendar.monthSnapshot")}>
+          <span>{t("calendar.scheduled", { count: scheduledItems })}</span>
+          <span>{t("calendar.activeDates", { count: activeDays })}</span>
+          <strong>{formatMoney(monthDue, currency, language)} {t("calendar.due")}</strong>
+        </p>
+        <div className="calendar-toolbar-actions">
+          <button
+            type="button"
+            onClick={() => setSelected(today)}
+            disabled={!dates.includes(today)}
+          >
+            {t("month.today")}
+          </button>
+          <button
+            type="button"
+            onClick={() => nextScheduledDate && setSelected(nextScheduledDate)}
+            disabled={!nextScheduledDate}
+          >
+            {t("calendar.nextPlanned")}
+          </button>
+        </div>
+      </div>
       <div className="weekdays" aria-hidden="true">
         {weekdayInitials(language).map((initial, index) => (
           <span key={index}>{initial}</span>
@@ -263,6 +318,16 @@ export function CalendarView({
                 </span>
               </div>
             ) : null}
+            <div className="calendar-week-summary">
+              <small>{t("calendar.thisWeek")}</small>
+              <strong className={selectedWeekNet < 0 ? "negative" : "income"}>
+                {selectedWeekNet > 0 ? "+" : ""}
+                {formatMoney(selectedWeekNet, currency, language)}
+              </strong>
+              <span>
+                {formatMoney(selectedWeekTotals.due, currency, language)} {t("calendar.due")} · {formatMoney(selectedWeekTotals.income, currency, language)} {t("calendar.income")}
+              </span>
+            </div>
             {selectedItems.length > 0 ? (
               <ul className="rows calendar-popover-rows">
                 {selectedItems.map((occurrence) => (
