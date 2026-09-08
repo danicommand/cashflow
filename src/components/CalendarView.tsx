@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 
 import type { Translator } from "../i18n.ts";
 import type { CurrencyCode, Entry, EntryKind, Language, Occurrence } from "../types.ts";
@@ -75,6 +75,35 @@ export function CalendarView({
     ...Array.from({ length: total }, (_, index) => toIso(year, monthNumber, index + 1)),
   ];
   while (cells.length % 7 !== 0) cells.push(null);
+  const dates = cells.filter((date): date is string => date !== null);
+
+  useEffect(() => {
+    if (!selected) return;
+
+    const dismissPopover = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (target.closest("#calendar-day-popover, [data-calendar-day]")) return;
+      setSelected(null);
+    };
+    const dismissOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSelected(null);
+    };
+
+    document.addEventListener("pointerdown", dismissPopover);
+    document.addEventListener("keydown", dismissOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", dismissPopover);
+      document.removeEventListener("keydown", dismissOnEscape);
+    };
+  }, [selected]);
+
+  const changeSelectedDay = (offset: number) => {
+    if (!selected) return;
+    const currentIndex = dates.indexOf(selected);
+    const nextIndex = Math.max(0, Math.min(dates.length - 1, currentIndex + offset));
+    setSelected(dates[nextIndex]);
+  };
 
   const selectedItems = selected
     ? occurrences.filter((occurrence) => occurrence.date === selected)
@@ -85,6 +114,7 @@ export function CalendarView({
   const selectedColumn = selectedIndex % 7;
   const popoverSide = selectedColumn < 2 ? "start" : selectedColumn > 4 ? "end" : "middle";
   const popoverDirection = selectedRow > 2 ? "above" : "below";
+  const selectedNet = selectedTotals ? selectedTotals.income - selectedTotals.unpaidExpense : 0;
 
   return (
     <div className="calendar">
@@ -126,7 +156,21 @@ export function CalendarView({
               aria-expanded={isSelected}
               aria-haspopup="dialog"
               aria-label={formatFullDate(date, language)}
+              data-calendar-day
               onClick={() => setSelected((current) => (current === date ? null : date))}
+              onKeyDown={(event) => {
+                const movement = {
+                  ArrowLeft: -1,
+                  ArrowRight: 1,
+                  ArrowUp: -7,
+                  ArrowDown: 7,
+                }[event.key];
+                if (movement === undefined) return;
+                event.preventDefault();
+                const currentIndex = dates.indexOf(date);
+                const nextIndex = Math.max(0, Math.min(dates.length - 1, currentIndex + movement));
+                setSelected(dates[nextIndex]);
+              }}
             >
               <span className="cell-day">{Number(date.slice(8))}</span>
               {day ? (
@@ -166,16 +210,40 @@ export function CalendarView({
                     : t("calendar.dayItems", { count: selectedItems.length })}
                 </p>
               </div>
-              <button
-                type="button"
-                className="calendar-popover-close"
-                aria-label={t("action.close")}
-                onClick={() => setSelected(null)}
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <path d="m7 7 10 10M17 7 7 17" />
-                </svg>
-              </button>
+              <div className="calendar-popover-tools">
+                <button
+                  type="button"
+                  className="calendar-popover-close"
+                  aria-label={t("calendar.previousDay")}
+                  disabled={dates.indexOf(selected) === 0}
+                  onClick={() => changeSelectedDay(-1)}
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="m14 6-6 6 6 6" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  className="calendar-popover-close"
+                  aria-label={t("calendar.nextDay")}
+                  disabled={dates.indexOf(selected) === dates.length - 1}
+                  onClick={() => changeSelectedDay(1)}
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="m10 6 6 6-6 6" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  className="calendar-popover-close"
+                  aria-label={t("action.close")}
+                  onClick={() => setSelected(null)}
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="m7 7 10 10M17 7 7 17" />
+                  </svg>
+                </button>
+              </div>
             </header>
             {selectedTotals ? (
               <div className="calendar-popover-summary">
@@ -186,6 +254,12 @@ export function CalendarView({
                 <span>
                   <small>{t("calendar.income")}</small>
                   <strong className="income">{formatMoney(selectedTotals.income, currency, language)}</strong>
+                </span>
+                <span>
+                  <small>{t("calendar.net")}</small>
+                  <strong className={selectedNet < 0 ? "negative" : "income"}>
+                    {formatMoney(selectedNet, currency, language)}
+                  </strong>
                 </span>
               </div>
             ) : null}

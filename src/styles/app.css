@@ -1718,6 +1718,12 @@ button.row-amount.actionable:focus-visible {
   font-size: 12px;
 }
 
+.calendar-popover-tools {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+}
+
 .calendar-popover-close {
   display: grid;
   flex: 0 0 auto;
@@ -1746,14 +1752,20 @@ button.row-amount.actionable:focus-visible {
   color: var(--ink);
 }
 
+.calendar-popover-close:disabled {
+  cursor: default;
+  opacity: 0.38;
+}
+
 .calendar-popover-close:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
 
 .calendar-popover-summary {
-  display: flex;
-  gap: 20px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
   margin: 13px 0 10px;
   padding: 9px 0;
   border-block: 1px solid var(--line);
@@ -1776,6 +1788,10 @@ button.row-amount.actionable:focus-visible {
 
 .calendar-popover-summary strong.income {
   color: var(--good);
+}
+
+.calendar-popover-summary strong.negative {
+  color: var(--alert);
 }
 
 .calendar-popover-rows {
