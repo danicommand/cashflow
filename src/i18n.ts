@@ -140,6 +140,11 @@ const en = {
   "pay.skipHint": "Not happening this time — no money moves, and it won't count toward this month's totals.",
 
   "calendar.noItems": "Nothing on this day.",
+  "calendar.dayEmpty": "A clear day — add what is coming up.",
+  "calendar.dayItems": "{count} planned",
+  "calendar.addForDay": "Add a bill",
+  "calendar.due": "Still due",
+  "calendar.income": "Coming in",
   "calendar.legendDue": "Due",
   "calendar.legendSettled": "Settled",
   "calendar.legendIncome": "Income",
@@ -393,6 +398,11 @@ const pt: Record<TranslationKey, string> = {
   "pay.skipHint": "Não vai acontecer desta vez — nenhum valor é movimentado, e não entra nos totais deste mês.",
 
   "calendar.noItems": "Nada neste dia.",
+  "calendar.dayEmpty": "Dia livre — adicione o que está por vir.",
+  "calendar.dayItems": "{count} planejado(s)",
+  "calendar.addForDay": "Lançar conta",
+  "calendar.due": "A pagar",
+  "calendar.income": "A receber",
   "calendar.legendDue": "A pagar",
   "calendar.legendSettled": "Quitado",
   "calendar.legendIncome": "Recebimento",

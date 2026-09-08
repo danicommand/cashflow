@@ -205,6 +205,10 @@ export default function App() {
     setEditor({ entry: null, draft: blankDraft("expense", start) });
   };
 
+  const openEditorForDate = (dueDate: string) => {
+    setEditor({ entry: null, draft: blankDraft("expense", dueDate) });
+  };
+
   const openEditorFor = (occurrence: Occurrence) => {
     setEditor({ entry: occurrence.entry, draft: draftFrom(occurrence.entry) });
   };
@@ -629,6 +633,7 @@ export default function App() {
               onPaymentDetails={setSettling}
               onOpen={openEditorFor}
               onDelete={removeEntry}
+              onAddForDay={openEditorForDate}
             />
           ) : null}
 

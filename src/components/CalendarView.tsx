@@ -11,7 +11,7 @@ import {
   weekdayOf,
 } from "../services/dates.ts";
 import { formatFullDate, weekdayInitials } from "../services/formats.ts";
-import { formatAmount } from "../services/money.ts";
+import { formatAmount, formatMoney } from "../services/money.ts";
 import { totalsByDay } from "../services/summary.ts";
 import { calendarPressure } from "../services/paymentPlan.ts";
 import { OccurrenceRow } from "./OccurrenceRow.tsx";
@@ -27,6 +27,7 @@ interface CalendarViewProps {
   onOpen: (occurrence: Occurrence) => void;
   onPaymentDetails?: (occurrence: Occurrence) => void;
   onDelete: (entry: Entry) => void;
+  onAddForDay: (date: string) => void;
 }
 
 /**
@@ -47,6 +48,7 @@ export function CalendarView({
   onOpen,
   onPaymentDetails,
   onDelete,
+  onAddForDay,
 }: CalendarViewProps) {
   const { year, month: monthNumber } = parseMonthKey(month);
   const totals = useMemo(() => totalsByDay(occurrences), [occurrences]);
@@ -77,6 +79,7 @@ export function CalendarView({
   const selectedItems = selected
     ? occurrences.filter((occurrence) => occurrence.date === selected)
     : [];
+  const selectedTotals = selected ? totals.get(selected) : undefined;
 
   return (
     <div className="calendar">
@@ -145,10 +148,32 @@ export function CalendarView({
       </div>
 
       {selected ? (
-        <section className="list-section">
-          <header className="list-head">
-            <h2>{formatFullDate(selected, language)}</h2>
+        <section className="calendar-day-card" aria-label={formatFullDate(selected, language)}>
+          <header className="calendar-day-card-head">
+            <div>
+              <h2>{formatFullDate(selected, language)}</h2>
+              <p>
+                {selectedItems.length === 0
+                  ? t("calendar.dayEmpty")
+                  : t("calendar.dayItems", { count: selectedItems.length })}
+              </p>
+            </div>
+            <button type="button" className="calendar-add" onClick={() => onAddForDay(selected)}>
+              {t("calendar.addForDay")}
+            </button>
           </header>
+          {selectedTotals ? (
+            <div className="calendar-day-summary">
+              <span>
+                <small>{t("calendar.due")}</small>
+                <strong>{formatMoney(selectedTotals.unpaidExpense, currency, language)}</strong>
+              </span>
+              <span>
+                <small>{t("calendar.income")}</small>
+                <strong className="income">{formatMoney(selectedTotals.income, currency, language)}</strong>
+              </span>
+            </div>
+          ) : null}
           {selectedItems.length > 0 ? (
             <ul className="rows">
               {selectedItems.map((occurrence) => (
