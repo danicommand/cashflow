@@ -15,6 +15,7 @@ interface OccurrenceRowProps {
   t: Translator;
   onToggle: (occurrence: Occurrence) => void;
   onOpen: (occurrence: Occurrence) => void;
+  onPaymentDetails?: (occurrence: Occurrence) => void;
   onDelete: (entry: Entry) => void;
 }
 
@@ -33,6 +34,7 @@ export function OccurrenceRow({
   t,
   onToggle,
   onOpen,
+  onPaymentDetails,
   onDelete,
 }: OccurrenceRowProps) {
   const settled = occurrence.payment !== null;
@@ -122,9 +124,16 @@ export function OccurrenceRow({
         </span>
       </button>
 
-      <span className={`row-amount${isIncome ? " income" : ""}`} data-row-amount>
+      <button
+        type="button"
+        className={`row-amount${isIncome ? " income" : ""}${onPaymentDetails ? " actionable" : ""}`}
+        data-row-amount
+        aria-label={t("action.paymentDetails", { description: occurrence.entry.description })}
+        onClick={() => onPaymentDetails?.(occurrence)}
+        disabled={!onPaymentDetails}
+      >
         {formatMoney(shown, currency, language)}
-      </span>
+      </button>
 
       <button
         type="button"

@@ -6,8 +6,8 @@ import { EntrySheet } from "./components/EntrySheet.tsx";
 import { LockScreen } from "./components/LockScreen.tsx";
 import { MonthView } from "./components/MonthView.tsx";
 import { SearchSheet } from "./components/SearchSheet.tsx";
-import { SettingsView } from "./components/SettingsView.tsx";
 import { SettleSheet } from "./components/SettleSheet.tsx";
+import { SettingsView } from "./components/SettingsView.tsx";
 import { Toast } from "./components/Toast.tsx";
 import { YearReviewSheet } from "./components/YearReviewSheet.tsx";
 import { useFabVisible } from "./hooks/useFabVisible.ts";
@@ -42,11 +42,10 @@ import {
   setBudget,
   settleOccurrence,
   skipOccurrence,
-  unsettleOccurrence,
-  unskipOccurrence,
   updateEntry,
   type EntryDraft,
 } from "./services/ledger.ts";
+import { toggleOccurrenceDirect } from "./services/occurrenceToggle.ts";
 import { clearLock, hasLock, setLock, verifyLock } from "./services/lock.ts";
 import { applyUpdate, UPDATE_EVENT } from "./pwa.ts";
 import { mergeLedgers } from "./services/merge.ts";
@@ -335,17 +334,15 @@ export default function App() {
   };
 
   const toggleOccurrence = (occurrence: Occurrence) => {
-    if (occurrence.payment) {
-      setLedger((current) =>
-        unsettleOccurrence(current, occurrence.entry.id, occurrence.date),
-      );
-      return;
-    }
-    if (occurrence.skipped) {
-      setLedger((current) => unskipOccurrence(current, occurrence.entry.id, occurrence.date));
-      return;
-    }
-    setSettling(occurrence);
+    const origin = occurrence.payment || occurrence.skipped
+      ? null
+      : measureOccurrenceAmount(occurrence.key);
+    setLedger((current) => toggleOccurrenceDirect(current, occurrence, today));
+    haptic("success");
+    if (!origin) return;
+    setCatchDelay(FLIGHT_CATCH_MS);
+    flyToTotal(origin);
+    window.setTimeout(() => setCatchDelay(0), 1_200);
   };
 
   const skipOccurrenceHandler = () => {
@@ -355,14 +352,6 @@ export default function App() {
     haptic("success");
   };
 
-  /**
-   * Settling a bill, choreographed.
-   *
-   * The row is measured *before* the state change, while it is still where the
-   * person tapped it; a moment later it will have left the unpaid list. The
-   * total then holds for the length of the flight so the two halves of the
-   * event read as one.
-   */
   const settle = (occurrence: Occurrence, amount: number, paidOn: string) => {
     const origin = measureOccurrenceAmount(occurrence.key);
     setLedger((current) =>
@@ -618,6 +607,7 @@ export default function App() {
                 )
               }
               onToggle={toggleOccurrence}
+              onPaymentDetails={setSettling}
               onOpen={openEditorFor}
               onDelete={removeEntry}
               onJumpElsewhere={jumpToOccurrenceMonth}
@@ -636,6 +626,7 @@ export default function App() {
               language={settings.language}
               t={t}
               onToggle={toggleOccurrence}
+              onPaymentDetails={setSettling}
               onOpen={openEditorFor}
               onDelete={removeEntry}
             />

@@ -25,6 +25,7 @@ interface CalendarViewProps {
   t: Translator;
   onToggle: (occurrence: Occurrence) => void;
   onOpen: (occurrence: Occurrence) => void;
+  onPaymentDetails?: (occurrence: Occurrence) => void;
   onDelete: (entry: Entry) => void;
 }
 
@@ -44,6 +45,7 @@ export function CalendarView({
   t,
   onToggle,
   onOpen,
+  onPaymentDetails,
   onDelete,
 }: CalendarViewProps) {
   const { year, month: monthNumber } = parseMonthKey(month);
@@ -159,6 +161,7 @@ export function CalendarView({
                   t={t}
                   onToggle={onToggle}
                   onOpen={onOpen}
+                  onPaymentDetails={onPaymentDetails}
                   onDelete={onDelete}
                 />
               ))}

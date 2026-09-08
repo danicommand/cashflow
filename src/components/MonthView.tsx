@@ -63,6 +63,7 @@ interface MonthViewProps {
   }>) => void;
   onToggle: (occurrence: Occurrence) => void;
   onOpen: (occurrence: Occurrence) => void;
+  onPaymentDetails?: (occurrence: Occurrence) => void;
   onDelete: (entry: Entry) => void;
   onJumpElsewhere: (occurrence: Occurrence) => void;
   onSelectMonth: (month: string) => void;
@@ -101,6 +102,7 @@ export function MonthView({
   onPreferenceChange,
   onToggle,
   onOpen,
+  onPaymentDetails,
   onDelete,
   onJumpElsewhere,
   onSelectMonth,
@@ -326,10 +328,9 @@ export function MonthView({
                 type="button"
                 className="link-button"
                 onClick={() => {
-                  setShowSettled((current) => {
-                    onPreferenceChange?.({ showSettledByDefault: !current });
-                    return !current;
-                  });
+                  const next = !showSettled;
+                  setShowSettled(next);
+                  onPreferenceChange?.({ showSettledByDefault: next });
                 }}
               >
                 {showSettled ? t("list.hidePaid") : t("list.showPaid")}
@@ -378,6 +379,7 @@ export function MonthView({
                 t={t}
                 onToggle={onToggle}
                 onOpen={onOpen}
+                onPaymentDetails={onPaymentDetails}
                 onDelete={onDelete}
               />
             ))}
@@ -392,6 +394,7 @@ export function MonthView({
                     t={t}
                     onToggle={onToggle}
                     onOpen={onOpen}
+                    onPaymentDetails={onPaymentDetails}
                     onDelete={onDelete}
                   />
                 ))
@@ -422,6 +425,7 @@ export function MonthView({
                 t={t}
                 onToggle={onToggle}
                 onOpen={onOpen}
+                onPaymentDetails={onPaymentDetails}
                 onDelete={onDelete}
               />
             ))}

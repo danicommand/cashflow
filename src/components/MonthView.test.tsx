@@ -1,4 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
+import { useState } from "react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -138,6 +139,62 @@ describe("MonthView dashboard priority", () => {
 });
 
 describe("MonthView payment planner", () => {
+  it("updates the settled-row preference outside the child state updater", async () => {
+    const user = userEvent.setup();
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const paidOccurrence: Occurrence = {
+      ...occurrence,
+      payment: {
+        id: occurrence.key,
+        entryId: entry.id,
+        occurrence: occurrence.date,
+        amount: entry.amount,
+        paidOn: "2026-09-04",
+        updatedAt: "2026-09-04T00:00:00.000Z",
+        deletedAt: null,
+      },
+    };
+
+    function PreferenceHarness() {
+      const [showSettledByDefault, setPreferences] = useState(false);
+      return (
+        <MonthView
+          month="2026-09"
+          occurrences={[paidOccurrence]}
+          today="2026-09-04"
+          currency="USD"
+          language="en"
+          t={translatorFor("en")}
+          catchDelay={0}
+          balance={0}
+          carriedIn={0}
+          globalOverdueTotal={0}
+          elsewhere={[]}
+          history={[]}
+          budgets={[]}
+          priority="leftToPay"
+          showSettledByDefault={showSettledByDefault}
+          onPreferenceChange={(change) => setPreferences(change.showSettledByDefault ?? false)}
+          onToggle={vi.fn()}
+          onOpen={vi.fn()}
+          onDelete={vi.fn()}
+          onJumpElsewhere={vi.fn()}
+          onSelectMonth={vi.fn()}
+          onManageCategory={vi.fn()}
+          onOpenYearReview={vi.fn()}
+        />
+      );
+    }
+
+    render(<PreferenceHarness />);
+    await user.click(screen.getByRole("button", { name: "Show settled" }));
+
+    expect(consoleError).not.toHaveBeenCalledWith(
+      expect.stringContaining("Cannot update a component"),
+    );
+    consoleError.mockRestore();
+  });
+
   it("shows the highest-ranked open bill first", () => {
     const essential = {
       ...occurrence,

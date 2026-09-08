@@ -32,6 +32,52 @@ const occurrence: Occurrence = {
 };
 
 describe("OccurrenceRow", () => {
+  it("uses the check circle as the direct paid toggle without opening the row", async () => {
+    const onToggle = vi.fn();
+    const onOpen = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <OccurrenceRow
+        occurrence={occurrence}
+        today="2026-09-04"
+        currency="USD"
+        language="en"
+        t={translatorFor("en")}
+        onToggle={onToggle}
+        onOpen={onOpen}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Mark paid: Rent" }));
+
+    expect(onToggle).toHaveBeenCalledWith(occurrence);
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it("keeps detailed payment editing behind the amount instead of the check circle", async () => {
+    const onPaymentDetails = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <OccurrenceRow
+        occurrence={occurrence}
+        today="2026-09-04"
+        currency="USD"
+        language="en"
+        t={translatorFor("en")}
+        onToggle={vi.fn()}
+        onOpen={vi.fn()}
+        onDelete={vi.fn()}
+        onPaymentDetails={onPaymentDetails}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Payment details: Rent" }));
+    expect(onPaymentDetails).toHaveBeenCalledWith(occurrence);
+  });
+
   it("offers a named remove control that deletes the underlying entry", async () => {
     const onDelete = vi.fn();
     const user = userEvent.setup();
