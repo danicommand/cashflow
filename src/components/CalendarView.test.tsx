@@ -119,6 +119,7 @@ describe("CalendarView day card", () => {
     await user.click(screen.getByRole("button", { name: /September 05, 2026/i }));
     await user.keyboard("{ArrowRight}");
     expect(screen.getByRole("dialog", { name: /September 06, 2026/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /September 06, 2026/i })).toHaveFocus();
 
     await user.click(screen.getByRole("button", { name: /Previous day/i }));
     expect(screen.getByRole("dialog", { name: /September 05, 2026/i })).toBeInTheDocument();

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
 import type { Translator } from "../i18n.ts";
 import type { CurrencyCode, Entry, EntryKind, Language, Occurrence } from "../types.ts";
@@ -51,6 +51,7 @@ export function CalendarView({
   onDelete,
   onAddForDay,
 }: CalendarViewProps) {
+  const dayButtons = useRef(new Map<string, HTMLButtonElement>());
   const { year, month: monthNumber } = parseMonthKey(month);
   const totals = useMemo(() => totalsByDay(occurrences), [occurrences]);
   const occurrencesByDay = useMemo(() => {
@@ -112,6 +113,11 @@ export function CalendarView({
     setSelected(dates[nextIndex]);
   };
 
+  const selectDay = (date: string, moveFocus = false) => {
+    setSelected(date);
+    if (moveFocus) dayButtons.current.get(date)?.focus();
+  };
+
   const selectedItems = selected
     ? occurrences.filter((occurrence) => occurrence.date === selected)
     : [];
@@ -162,7 +168,7 @@ export function CalendarView({
             onClick={() => setSelected(today)}
             disabled={!dates.includes(today)}
           >
-            {t("month.today")}
+            {t("calendar.openToday")}
           </button>
           <button
             type="button"
@@ -205,6 +211,10 @@ export function CalendarView({
               key={date}
               type="button"
               className={classes}
+              ref={(button) => {
+                if (button) dayButtons.current.set(date, button);
+                else dayButtons.current.delete(date);
+              }}
               style={{ "--wave": wave } as CSSProperties}
               aria-current={isToday ? "date" : undefined}
               aria-controls={isSelected ? "calendar-day-popover" : undefined}
@@ -224,7 +234,7 @@ export function CalendarView({
                 event.preventDefault();
                 const currentIndex = dates.indexOf(date);
                 const nextIndex = Math.max(0, Math.min(dates.length - 1, currentIndex + movement));
-                setSelected(dates[nextIndex]);
+                selectDay(dates[nextIndex], true);
               }}
             >
               <span className="cell-day">{Number(date.slice(8))}</span>
