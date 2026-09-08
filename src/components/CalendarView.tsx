@@ -220,10 +220,22 @@ export function CalendarView({
               aria-controls={isSelected ? "calendar-day-popover" : undefined}
               aria-expanded={isSelected}
               aria-haspopup="dialog"
-              aria-label={formatFullDate(date, language)}
+              aria-label={
+                day
+                  ? `${formatFullDate(date, language)} · ${t("calendar.dayItems", { count: day.count })}`
+                  : formatFullDate(date, language)
+              }
               data-calendar-day
               onClick={() => setSelected((current) => (current === date ? null : date))}
               onKeyDown={(event) => {
+                const currentIndex = dates.indexOf(date);
+                if (event.key === "Home" || event.key === "End") {
+                  event.preventDefault();
+                  const edgeOffset = event.key === "Home" ? -weekdayOf(date) : 6 - weekdayOf(date);
+                  const nextIndex = Math.max(0, Math.min(dates.length - 1, currentIndex + edgeOffset));
+                  selectDay(dates[nextIndex], true);
+                  return;
+                }
                 const movement = {
                   ArrowLeft: -1,
                   ArrowRight: 1,
@@ -232,7 +244,6 @@ export function CalendarView({
                 }[event.key];
                 if (movement === undefined) return;
                 event.preventDefault();
-                const currentIndex = dates.indexOf(date);
                 const nextIndex = Math.max(0, Math.min(dates.length - 1, currentIndex + movement));
                 selectDay(dates[nextIndex], true);
               }}
@@ -243,6 +254,7 @@ export function CalendarView({
                   {day.unpaidExpense > 0 ? <i className="mark due" /> : null}
                   {day.expense > day.unpaidExpense ? <i className="mark settled" /> : null}
                   {day.income > 0 ? <i className="mark income" /> : null}
+                  {day.count > 1 ? <span className="cell-count" aria-hidden="true">{day.count}</span> : null}
                 </span>
               ) : null}
               {day && day.unpaidExpense > 0 ? (

@@ -1610,7 +1610,22 @@ button.row-amount.actionable:focus-visible {
 
 .cell-marks {
   display: flex;
+  align-items: center;
   gap: 3px;
+}
+
+.cell-count {
+  min-width: 13px;
+  padding: 0 3px;
+  border-radius: 7px;
+  color: var(--ink-soft);
+  background: var(--surface-sunken);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 13px;
+  font-variant-numeric: tabular-nums;
+  animation: mark-in 320ms var(--ease-settle) both;
+  animation-delay: calc(var(--wave, 0) * 16ms + 130ms);
 }
 
 .mark {
@@ -3020,6 +3035,7 @@ button.row-amount.actionable:focus-visible {
   .stats .stat,
   .cell:not(.blank),
   .cell-marks .mark,
+  .cell-count,
   .sheet,
   .sheet-backdrop,
   .sheet-body .form > *,

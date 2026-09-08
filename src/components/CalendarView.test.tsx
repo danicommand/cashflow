@@ -128,6 +128,54 @@ describe("CalendarView day card", () => {
     expect(screen.getByRole("dialog", { name: /September 06, 2026/i })).toBeInTheDocument();
   });
 
+  it("moves to the beginning and end of a week with Home and End", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <CalendarView
+        month="2026-09"
+        occurrences={[]}
+        today="2026-09-04"
+        currency="USD"
+        language="en"
+        t={translatorFor("en")}
+        onToggle={vi.fn<(occurrence: Occurrence) => void>()}
+        onOpen={vi.fn<(occurrence: Occurrence) => void>()}
+        onDelete={vi.fn()}
+        onAddForDay={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /September 10, 2026/i }));
+    await user.keyboard("{Home}");
+    expect(screen.getByRole("button", { name: /September 06, 2026/i })).toHaveFocus();
+
+    await user.keyboard("{End}");
+    expect(screen.getByRole("button", { name: /September 12, 2026/i })).toHaveFocus();
+  });
+
+  it("describes a busy date with its planned item count", () => {
+    render(
+      <CalendarView
+        month="2026-09"
+        occurrences={[
+          plannedOccurrence("2026-09-10", "expense", 24500),
+          plannedOccurrence("2026-09-10", "income", 100000),
+        ]}
+        today="2026-09-04"
+        currency="USD"
+        language="en"
+        t={translatorFor("en")}
+        onToggle={vi.fn<(occurrence: Occurrence) => void>()}
+        onOpen={vi.fn<(occurrence: Occurrence) => void>()}
+        onDelete={vi.fn()}
+        onAddForDay={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /September 10, 2026.*2 planned/i })).toBeInTheDocument();
+  });
+
   it("jumps to the next scheduled day from the calendar toolbar", async () => {
     const user = userEvent.setup();
 
