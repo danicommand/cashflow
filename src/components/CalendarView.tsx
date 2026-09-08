@@ -1,7 +1,7 @@
 import { useMemo, useState, type CSSProperties } from "react";
 
 import type { Translator } from "../i18n.ts";
-import type { CurrencyCode, Entry, Language, Occurrence } from "../types.ts";
+import type { CurrencyCode, Entry, EntryKind, Language, Occurrence } from "../types.ts";
 import {
   daysInMonth,
   firstDayOfMonth,
@@ -27,7 +27,7 @@ interface CalendarViewProps {
   onOpen: (occurrence: Occurrence) => void;
   onPaymentDetails?: (occurrence: Occurrence) => void;
   onDelete: (entry: Entry) => void;
-  onAddForDay: (date: string) => void;
+  onAddForDay: (date: string, kind: EntryKind) => void;
 }
 
 /**
@@ -80,6 +80,11 @@ export function CalendarView({
     ? occurrences.filter((occurrence) => occurrence.date === selected)
     : [];
   const selectedTotals = selected ? totals.get(selected) : undefined;
+  const selectedIndex = selected ? cells.indexOf(selected) : -1;
+  const selectedRow = Math.floor(selectedIndex / 7);
+  const selectedColumn = selectedIndex % 7;
+  const popoverSide = selectedColumn < 2 ? "start" : selectedColumn > 4 ? "end" : "middle";
+  const popoverDirection = selectedRow > 2 ? "above" : "below";
 
   return (
     <div className="calendar">
@@ -89,7 +94,8 @@ export function CalendarView({
         ))}
       </div>
 
-      <div className="grid" role="grid">
+      <div className="calendar-grid-wrap">
+        <div className="grid" role="grid">
         {cells.map((date, index) => {
           if (!date) return <span key={`blank-${index}`} className="cell blank" />;
           // The cascade runs by row, not by cell, so a 42-cell grid settles in
@@ -116,8 +122,11 @@ export function CalendarView({
               className={classes}
               style={{ "--wave": wave } as CSSProperties}
               aria-current={isToday ? "date" : undefined}
+              aria-controls={isSelected ? "calendar-day-popover" : undefined}
+              aria-expanded={isSelected}
+              aria-haspopup="dialog"
               aria-label={formatFullDate(date, language)}
-              onClick={() => setSelected(date)}
+              onClick={() => setSelected((current) => (current === date ? null : date))}
             >
               <span className="cell-day">{Number(date.slice(8))}</span>
               {day ? (
@@ -133,6 +142,83 @@ export function CalendarView({
             </button>
           );
         })}
+        </div>
+
+        {selected ? (
+          <section
+            id="calendar-day-popover"
+            className={`calendar-popover ${popoverSide} ${popoverDirection}`}
+            role="dialog"
+            aria-label={formatFullDate(selected, language)}
+            style={
+              {
+                "--popover-row": selectedRow,
+                "--popover-column": selectedColumn,
+              } as CSSProperties
+            }
+          >
+            <header className="calendar-popover-head">
+              <div>
+                <h2>{formatFullDate(selected, language)}</h2>
+                <p>
+                  {selectedItems.length === 0
+                    ? t("calendar.dayEmpty")
+                    : t("calendar.dayItems", { count: selectedItems.length })}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="calendar-popover-close"
+                aria-label={t("action.close")}
+                onClick={() => setSelected(null)}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="m7 7 10 10M17 7 7 17" />
+                </svg>
+              </button>
+            </header>
+            {selectedTotals ? (
+              <div className="calendar-popover-summary">
+                <span>
+                  <small>{t("calendar.due")}</small>
+                  <strong>{formatMoney(selectedTotals.unpaidExpense, currency, language)}</strong>
+                </span>
+                <span>
+                  <small>{t("calendar.income")}</small>
+                  <strong className="income">{formatMoney(selectedTotals.income, currency, language)}</strong>
+                </span>
+              </div>
+            ) : null}
+            {selectedItems.length > 0 ? (
+              <ul className="rows calendar-popover-rows">
+                {selectedItems.map((occurrence) => (
+                  <OccurrenceRow
+                    key={occurrence.key}
+                    occurrence={occurrence}
+                    today={today}
+                    currency={currency}
+                    language={language}
+                    t={t}
+                    onToggle={onToggle}
+                    onOpen={onOpen}
+                    onPaymentDetails={onPaymentDetails}
+                    onDelete={onDelete}
+                  />
+                ))}
+              </ul>
+            ) : (
+              <p className="calendar-popover-empty">{t("calendar.noItems")}</p>
+            )}
+            <footer className="calendar-popover-actions">
+              <button type="button" onClick={() => onAddForDay(selected, "expense")}>
+                {t("calendar.addForDay")}
+              </button>
+              <button type="button" onClick={() => onAddForDay(selected, "income")}>
+                {t("action.addIncome")}
+              </button>
+            </footer>
+          </section>
+        ) : null}
       </div>
 
       <div className="legend">
@@ -147,55 +233,6 @@ export function CalendarView({
         </span>
       </div>
 
-      {selected ? (
-        <section className="calendar-day-card" aria-label={formatFullDate(selected, language)}>
-          <header className="calendar-day-card-head">
-            <div>
-              <h2>{formatFullDate(selected, language)}</h2>
-              <p>
-                {selectedItems.length === 0
-                  ? t("calendar.dayEmpty")
-                  : t("calendar.dayItems", { count: selectedItems.length })}
-              </p>
-            </div>
-            <button type="button" className="calendar-add" onClick={() => onAddForDay(selected)}>
-              {t("calendar.addForDay")}
-            </button>
-          </header>
-          {selectedTotals ? (
-            <div className="calendar-day-summary">
-              <span>
-                <small>{t("calendar.due")}</small>
-                <strong>{formatMoney(selectedTotals.unpaidExpense, currency, language)}</strong>
-              </span>
-              <span>
-                <small>{t("calendar.income")}</small>
-                <strong className="income">{formatMoney(selectedTotals.income, currency, language)}</strong>
-              </span>
-            </div>
-          ) : null}
-          {selectedItems.length > 0 ? (
-            <ul className="rows">
-              {selectedItems.map((occurrence) => (
-                <OccurrenceRow
-                  key={occurrence.key}
-                  occurrence={occurrence}
-                  today={today}
-                  currency={currency}
-                  language={language}
-                  t={t}
-                  onToggle={onToggle}
-                  onOpen={onOpen}
-                  onPaymentDetails={onPaymentDetails}
-                  onDelete={onDelete}
-                />
-              ))}
-            </ul>
-          ) : (
-            <p className="list-empty">{t("calendar.noItems")}</p>
-          )}
-        </section>
-      ) : null}
     </div>
   );
 }

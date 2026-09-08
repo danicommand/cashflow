@@ -1654,60 +1654,104 @@ button.row-amount.actionable:focus-visible {
   gap: 5px;
 }
 
-.calendar-day-card {
-  margin-top: 16px;
-  padding: 15px;
+.calendar-grid-wrap {
+  position: relative;
+}
+
+.calendar-popover {
+  position: absolute;
+  z-index: 4;
+  width: min(292px, calc(100% - 16px));
+  padding: 13px;
   border-radius: var(--radius);
   background: var(--surface);
   box-shadow: var(--shadow);
-  animation: day-card-in var(--normal) var(--ease-arrive) both;
+  animation: calendar-popover-in var(--fast) var(--ease-arrive) both;
 }
 
-.calendar-day-card-head {
+.calendar-popover.below {
+  top: calc((var(--popover-row) + 1) * 66px + 6px);
+}
+
+.calendar-popover.above {
+  top: calc(var(--popover-row) * 66px - 6px);
+  transform: translateY(-100%);
+  transform-origin: bottom;
+}
+
+.calendar-popover.start {
+  left: 0;
+}
+
+.calendar-popover.middle {
+  left: calc((var(--popover-column) + 0.5) * (100% / 7));
+  transform: translateX(-50%);
+}
+
+.calendar-popover.middle.above {
+  transform: translate(-50%, -100%);
+}
+
+.calendar-popover.end {
+  right: 0;
+}
+
+.calendar-popover-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
 }
 
-.calendar-day-card h2,
-.calendar-day-card p {
+.calendar-popover h2,
+.calendar-popover p {
   margin: 0;
 }
 
-.calendar-day-card h2 {
+.calendar-popover h2 {
   font-size: 15px;
 }
 
-.calendar-day-card-head p {
+.calendar-popover-head p {
   margin-top: 3px;
   color: var(--ink-soft);
   font-size: 12px;
 }
 
-.calendar-add {
+.calendar-popover-close {
+  display: grid;
   flex: 0 0 auto;
-  padding: 7px 10px;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
   border: 0;
-  border-radius: 8px;
-  color: var(--accent-ink);
-  background: var(--accent);
+  border-radius: 50%;
+  color: var(--ink-soft);
+  background: var(--surface-sunken);
   font: inherit;
-  font-size: 12px;
-  font-weight: 650;
   cursor: pointer;
 }
 
-.calendar-add:hover {
-  filter: brightness(1.06);
+.calendar-popover-close svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 2;
 }
 
-.calendar-add:focus-visible {
+.calendar-popover-close:hover {
+  color: var(--ink);
+}
+
+.calendar-popover-close:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
 
-.calendar-day-summary {
+.calendar-popover-summary {
   display: flex;
   gap: 20px;
   margin: 13px 0 10px;
@@ -1715,33 +1759,82 @@ button.row-amount.actionable:focus-visible {
   border-block: 1px solid var(--line);
 }
 
-.calendar-day-summary span {
+.calendar-popover-summary span {
   display: grid;
   gap: 2px;
 }
 
-.calendar-day-summary small {
+.calendar-popover-summary small {
   color: var(--ink-faint);
   font-size: 10.5px;
 }
 
-.calendar-day-summary strong {
+.calendar-popover-summary strong {
   font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
 
-.calendar-day-summary strong.income {
+.calendar-popover-summary strong.income {
   color: var(--good);
 }
 
-@keyframes day-card-in {
+.calendar-popover-rows {
+  max-height: 155px;
+  overflow-y: auto;
+}
+
+.calendar-popover-empty {
+  padding: 12px 0 3px;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.calendar-popover-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.calendar-popover-actions button {
+  padding: 8px 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--surface);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.calendar-popover-actions button:first-child {
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  background: var(--accent);
+}
+
+.calendar-popover-actions button:hover {
+  background: var(--surface-sunken);
+}
+
+.calendar-popover-actions button:first-child:hover {
+  filter: brightness(1.06);
+}
+
+.calendar-popover-actions button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@keyframes calendar-popover-in {
   from {
     opacity: 0;
-    transform: translateY(-5px);
+    filter: blur(2px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    filter: blur(0);
   }
 }
 

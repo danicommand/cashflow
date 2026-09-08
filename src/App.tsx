@@ -205,8 +205,8 @@ export default function App() {
     setEditor({ entry: null, draft: blankDraft("expense", start) });
   };
 
-  const openEditorForDate = (dueDate: string) => {
-    setEditor({ entry: null, draft: blankDraft("expense", dueDate) });
+  const openEditorForDate = (dueDate: string, kind: "expense" | "income") => {
+    setEditor({ entry: null, draft: blankDraft(kind, dueDate) });
   };
 
   const openEditorFor = (occurrence: Occurrence) => {
