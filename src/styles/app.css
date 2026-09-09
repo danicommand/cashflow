@@ -509,6 +509,62 @@ svg {
 
 /* ------------------------------------------------------------- month view -- */
 
+.month-overview {
+  padding: 6px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.month-overview .hero {
+  border: 0;
+  box-shadow: none;
+  padding: 20px 18px;
+}
+
+.month-overview .hero.alert .hero-figure { color: var(--alert); }
+.month-overview .hero.good .hero-figure { color: var(--good); }
+
+.month-overview .stats {
+  margin: 0;
+  gap: 0;
+  border-top: 1px solid var(--line);
+}
+
+.month-overview .stat {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 16px 18px;
+}
+
+.month-overview .stat-hint { margin-top: 5px; line-height: 1.45; }
+
+.month-list-count {
+  display: inline-block;
+  margin-left: 5px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.month-filter-empty {
+  padding: 22px 16px;
+  text-align: center;
+  background: var(--surface-sunken);
+  border-radius: var(--radius-small);
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.month-filter-empty p { margin: 0 0 8px; }
+
+@media (min-width: 620px) {
+  .month-overview { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); align-items: center; }
+  .month-overview .stats { border-top: 0; border-left: 1px solid var(--line); grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .month-overview .stat { padding: 12px 16px; }
+}
+
 .hero {
   padding: 22px 20px 18px;
   background: var(--surface);
@@ -783,6 +839,25 @@ svg {
 }
 
 .pay-plan-list button:hover { background: var(--accent-soft); }
+
+.month .pay-plan-list button {
+  min-height: 62px;
+  transition: background-color 160ms ease-out;
+}
+
+.month .pay-plan-list button:first-child {
+  background: var(--accent-soft);
+}
+
+.month .list-head h2 {
+  margin: 0;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--ink);
+}
+
+.month .list-head { margin-bottom: 12px; }
 
 .pay-plan-rank {
   display: grid;

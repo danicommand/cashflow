@@ -14,6 +14,7 @@ import type {
 import { monthBudgets } from "../services/budgets.ts";
 import { categoryColorIndex } from "../services/categoryColor.ts";
 import { formatMoney } from "../services/money.ts";
+import { formatDate } from "../services/formats.ts";
 import { paidProgress, summarise, totalsByCategory } from "../services/summary.ts";
 import {
   filterOpenExpenses,
@@ -222,7 +223,8 @@ export function MonthView({
 
   return (
     <div className="month">
-      <section className="hero" aria-label={heroMetric.label}>
+      <div className="month-overview">
+      <section className={`hero${heroMetric.tone ? ` ${heroMetric.tone}` : ""}`} aria-label={heroMetric.label}>
         <p className="hero-label">{heroMetric.label}</p>
         <p className="hero-figure" data-total-figure>
           <AnimatedMoney
@@ -235,6 +237,7 @@ export function MonthView({
         <div
           className="progress"
           role="progressbar"
+          aria-label={t("list.paid")}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={Math.round(progress * 100)}
@@ -281,6 +284,8 @@ export function MonthView({
         ))}
       </section>
 
+      </div>
+
       <CashRunway
         carriedIn={carriedIn}
         occurrences={occurrences}
@@ -310,7 +315,7 @@ export function MonthView({
                 <span className="pay-plan-rank">{index + 1}</span>
                 <span className="pay-plan-copy">
                   <strong>{item.entry.description}</strong>
-                  <small>{t(`priority.${item.entry.priority ?? "important"}`)}</small>
+                  <small>{formatDate(item.date, language)} · {t(`priority.${item.entry.priority ?? "important"}`)}</small>
                 </span>
                 <span className="pay-plan-amount">{money(item.amount)}</span>
               </button>
@@ -322,7 +327,7 @@ export function MonthView({
       {expenses.length > 0 ? (
         <section className="list-section">
           <header className="list-head">
-            <h2>{t("list.expenses")}</h2>
+            <h2>{t("list.expenses")} <span className="month-list-count">{openExpenses.length}</span></h2>
             {settledExpenses.length > 0 ? (
               <button
                 type="button"
@@ -400,7 +405,14 @@ export function MonthView({
                 ))
               : null}
           </ul>
-          {visibleOpenExpenses.length === 0 && !showSettled ? (
+          {visibleOpenExpenses.length === 0 && openExpenses.length > 0 ? (
+            <div className="month-filter-empty" role="status">
+              <p>{t("filter.noMatches")}</p>
+              <button type="button" className="link-button" onClick={() => onPreferenceChange?.({ monthFilter: "all" })}>
+                {t("filter.reset")}
+              </button>
+            </div>
+          ) : visibleOpenExpenses.length === 0 && !showSettled ? (
             <p className="list-empty">{t("summary.allPaid")}</p>
           ) : null}
         </section>

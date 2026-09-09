@@ -257,6 +257,7 @@ describe("MonthView payment planner", () => {
         budgets={[]}
         priority="leftToPay"
         onPreferenceChange={onPreferenceChange}
+        monthFilter="overdue"
         onToggle={vi.fn()}
         onOpen={vi.fn()}
         onDelete={vi.fn()}
@@ -268,5 +269,9 @@ describe("MonthView payment planner", () => {
     );
     await user.click(screen.getByRole("button", { name: "Essential" }));
     expect(onPreferenceChange).toHaveBeenCalledWith({ monthFilter: "essential" });
+    expect(screen.getByText("No open bills match this filter.")).toBeInTheDocument();
+    expect(screen.queryByText("Everything for this month is settled.")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Show all bills" }));
+    expect(onPreferenceChange).toHaveBeenLastCalledWith({ monthFilter: "all" });
   });
 });
